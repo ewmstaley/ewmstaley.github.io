@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>How does Diffusion Work?</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="PAGETITLE" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="My notes on DDPM." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../code.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../posts.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Diffusion Policy Part 1</h1>
+
+<h2>How does Diffusion Work?</h2>
+
+<p class='author'>October 20, 2024</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>See also: <a href="../diffusion_2/diffusion2.html">Part 2</a> |  <a href="../diffusion_3/diffusion3.html">Part 3</a></p>
+
+<h3>Denoising Diffusion</h3>
+
+<p>While working to implement diffusion policies, I tried to first build an understanding of diffusion models on their own. Typically, diffusion is applied to image generation, and the recent landmark work in this area is Denoising Diffusion Probabilistic Models (<a href="https://arxiv.org/pdf/2006.11239">DDPM</a>). My notes here concentrate on this work exclusively; later posts will shift the focus to policies.</p>
+
+<p>The purpose of a diffusion model is to learn a mapping between two distributions of data: One that is very complex and hard to sample from, but has data of interest (for example, the distribution of all possible 256x256 images of flowers), and a second which is uninteresting but very easy to sample from (for example, a 256x256 normal distribution). If such a mapping can be learned, then we have an easy recipe to sample interesting data: sample a point from the easy, uninteresting dataset, and then map it into the interesting dataset. Here "sampling" is the same as generating. In the flower image example, by following this process and ultimately sampling from the distribution of flower images we have "generated" a flower image.</p>
+
+<p>Our key problem is how to construct this mapping, given that we only have samples of the interesting dataset and not the underlying distribution (which is ultimately what we want to approximate). There are two ways that we can use this mapping: from the interesting data to the easy one (flowers to noise) is called the forward process, and traveling the other way is called the backwards process. Critically, note that what we really want to end up with is the backwards process, from something easy like Gaussian noise back to the original data.</p>
+
+<h3>Forward Diffusion</h3>
+
+<p>The forward mapping, from rich data to noise, can just be constructed manually. We can take any data point and iteratively add noise to it until it is "just noise". The harder challenge will be learning to undo this noise (next section), the "Denoising" in DDPM.</p>
+
+<p>DDPM constructs a forward diffusion process that takes any datapoint from the target distribution and iteratively deteriorates it into the standard normal distribution using the following algorithm:</p>
+
+<div class='algo'>
+
+<p><strong>Intuitive Forward Diffusion Algorithm</strong></p>
+
+<p>Given a datapoint x</p>
+
+<p>Repeat T times:</p>
+
+<ol>
+<li><p><strong>Shift</strong>: Move x slightly towards zero by multiplying by a constant close to (but less than) one.</p></li>
+
+<li><p><strong>Noise</strong>: Add noise to x by adding a Gaussian distribution with zero mean and a small variance.</p></li>
+</ol>
+
+</div>
+
+<p>We can define our complete forward process by defining T, the multiplicative factor for step 1, and the variance for step 2. DDPM uses T=1000, and defines a very small variance constant for each of these steps, called beta. Beta increases linearly with T, something like beta=linspace(0.0001, 0.02, T). For step 1, we can reuse beta to define a small number less than one: sqrt(1-beta). This gives the following concrete algorithm:</p>
+
+<div class='algo'>
+
+<p><strong>Forward Diffusion Algorithm</strong></p>
+
+<p>Given a datapoint x and betas β=linspace(0.0001, 0.02, T=1000)</p>
+
+<p>For each β:</p>
+
+<ol>
+<li><p><strong>Shift</strong>: x = x * sqrt(1 - β)</p></li>
+
+<li><p><strong>Noise</strong>: x = x + Normal(0,β)</p></li>
+</ol>
+
+</div>
+
+<p>We can easily visualize this by starting with some initial distribution and applying the above routine. For one dimension, starting with a single point-mass at x=4 (actually an incredibly tight gaussian distribution to make things simpler):</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="plot1.png" alt="img" /></p>
+
+<p>Here we have plotted every 20th curve in the sequence (starting at red and ending at blue), and we can see that this process converges to the standard normal. We can also do this in two dimensions, which simply does this on two independent axes:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="plot2.png" alt="img" /></p>
+
+<p>In either case, as soon as we are one step into our sequence, we are dealing with normal distributions rather than points. Here, the circles represent one standard deviation of the current distribution centered at the solid-colored point</p>
+
+<p>Note that the trajectory of the mean is linear (we are just moving it straight towards zero), but the rates of change of the mean and variance are not. Each time the mean is shifted, we are multiplying by the next sqrt(1-β), so we can visualize this movement by plotting the cumulative products of all sqrt(1-β) terms. Meanwhile, the variance of the next distribution is given by existing_variance*(1-β)+β, which we can also plot:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="plot3.png" alt="img" /></p>
+
+<p>We can also explore the impact of other bounds to beta and number of steps in our schedule:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="plot4.png" alt="img" /></p>
+
+<p>The parameters given in the DDPM paper (0.0001, 0.02, T=1000) are in blue, and show a smooth interpolation over our 1000 steps. More steps (purple) simply takes longer to converge (which is fine), but fewer steps (red) actually doesn’t make it. Changing the ranges of beta impacts convergence rate. Large betas (green) converge really fast, which may be hard for our model to learn. </p>
+
+<p>We can imagine applying our process to a large number of points such that the entire distribution of our data is shifted towards the standard normal. This is what we really want to do- map our entire dataset to a nice distribution we can sample from. In practice we should zero-center and normalize our data so we are not blasting it across spacetime during the forward process, but that wouldn’t be very exciting to look at visually: </p>
+
+<p class='imgwrap'><img class='inlineimg'  src="plot5.png" alt="img" /></p>
+
+<p>A nice property of this diffusion process is that we can jump to any distribution along our interpolation trajectory (we do not need to solve it iteratively). At some step t &lt;= T, we can clearly find our mean my taking the cumulative product of sqrt(1-β), which is the cumulative effect of all our slight shifts towards zero:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>&#x003BC;</mi><mi>t</mi></msub><mo>&#x0003D;</mo><msqrt><mrow><msubsup><mo>&#x0220F;</mo><mrow><mi>i</mi><mo>&#x0003D;</mo><mn>0</mn></mrow><mi>t</mi></msubsup><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><msub><mi>&#x003B2;</mi><mi>i</mi></msub><mo stretchy="false">&#x00029;</mo></mrow></msqrt></mrow></math>
+
+<p>Finding a nice form for the variance is bit tricker, but it turns out that it can be expressed as:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msubsup><mi>&#x003C3;</mi><mi>t</mi><mn>2</mn></msubsup><mo>&#x0003D;</mo><mn>1.0</mn><mo>&#x02212;</mo><msubsup><mo>&#x0220F;</mo><mrow><mi>i</mi><mo>&#x0003D;</mo><mn>0</mn></mrow><mi>t</mi></msubsup><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><msub><mi>&#x003B2;</mi><mi>i</mi></msub><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>Thus, for any point x, we can jump to a noised version of x that is at some step t between 0 and 1000 by specifying:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><msub><mi>&#x003BC;</mi><mi>t</mi></msub><mi>x</mi><mo>&#x0002B;</mo><mi>N</mi><mo stretchy="false">&#x00028;</mo><mn>0</mn><mo>&#x0002C;</mo><msup><mi>&#x003C3;</mi><mn>2</mn></msup><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>For images specifically, the data will not be 1D or 2D, but very highly dimensional (width by height by channels). We can visualize the forward diffusion process applied to an image, in which it starts as a complete image and deteriorates into random noise (here showing every 100th step):</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="figure.png" alt="img" /></p>
+
+<h3>Our Training Objective: Denoising</h3>
+
+<p>At the end of the above section, we are able to specify a datapoint at step t in our diffusion process as the original datapoint, scaled, plus some noise. This isolates the noise term, and allows us to compile a dataset of (noised_image, noise, t) tuples. Important note: when multiplying a normal distribution by a constant, the variance is multiplied by the constant squared. Or in this case, to bring our multiplier outside the distribution, we take the square root:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><msub><mi>&#x003BC;</mi><mi>t</mi></msub><mi>x</mi><mo>&#x0002B;</mo><msqrt><mrow><msup><mi>&#x003C3;</mi><mn>2</mn></msup></mrow></msqrt><mi>N</mi><mo stretchy="false">&#x00028;</mo><mn>0</mn><mo>&#x0002C;</mo><mn>1</mn><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>We can then train a neural network to predict the noise that is present in a given image via supervised learning . Given an input of (noised_image, t), we have a training target of (noise,):</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>N</mi><mi>o</mi><mi>i</mi><mi>s</mi><mi>e</mi><mi>:</mi><mspace width="1em" /><mi>&#x003F5;</mi><mo>&#x0003D;</mo><mi>N</mi><mo stretchy="false">&#x00028;</mo><mn>0</mn><mo>&#x0002C;</mo><mn>1</mn><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>t</mi><mo>&#x0003D;</mo><mi>u</mi><mi>n</mi><mi>i</mi><mi>f</mi><mi>o</mi><mi>r</mi><mi>m</mi><mo stretchy="false">&#x00028;</mo><mn>0</mn><mo>&#x0002C;</mo><mi>T</mi><mo>&#x0003D;</mo><mn>1000</mn><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>Our noisy image x_t is calculated using t and the corresponding beta values:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><msub><mi>&#x003BC;</mi><mi>t</mi></msub><mi>x</mi><mo>&#x0002B;</mo><msqrt><mrow><msup><mi>&#x003C3;</mi><mn>2</mn></msup></mrow></msqrt><mo>&#x0002A;</mo><mi>&#x003F5;</mi></mrow></math>
+
+<p>Finally, our loss is to predict the noise that is present in an input, given the current time t:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>L</mi><mi>o</mi><mi>s</mi><mi>s</mi><mo>&#x0003D;</mo><mi>M</mi><mi>S</mi><mi>E</mi><mo stretchy="false">&#x00028;</mo><msub><mi>&#x003F5;</mi><mi>&#x003B8;</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><mi>&#x003F5;</mi><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>Where our model is epsilon parameterized by theta, and epsilon on its own is the true noise. If we can accurately train such a network, we can take any noisy image, predict the noise that is present, and recover the original image. In an extreme case, we could start with pure noise and try to "remove" some predicted noise, leaving behind a pristine image. This is not feasible in practice - we cannot jump straight to a perfect image in one pass - but we can move towards a better image. Iteratively moving from noise towards a clean image is called "sampling", as in "sampling from the distribution represented by our data".</p>
+
+<h3>Sampling</h3>
+
+<p>To sample from our distribution, we want to follow the diffusion process in reverse. Starting with random noise, we predict the noise that might be present and then shift the datapoint closer to a clean image, one step at a time (i.e. for T=1000, 999, 998, …). Using our diffusion scheduling parameters, we can scale and subtract the noise such that we are walking backwards along the diffusion process:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>x</mi><mrow><mi>t</mi><mo>&#x02212;</mo><mn>1</mn></mrow></msub><mo>&#x0003D;</mo><mfrac><mrow><mn>1</mn></mrow><mrow><msqrt><mrow><msub><mi>&#x003B1;</mi><mi>t</mi></msub></mrow></msqrt></mrow></mfrac><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x02212;</mo><mfrac><mrow><mn>1</mn><mo>&#x02212;</mo><msub><mi>&#x003B1;</mi><mi>t</mi></msub></mrow><mrow><msqrt><mrow><mn>1</mn><mo>&#x02212;</mo><mover><mrow><msub><mi>&#x003B1;</mi><mi>t</mi></msub></mrow><mo stretchy="true">&#x000AF;</mo></mover></mrow></msqrt></mrow></mfrac><msub><mi>&#x003F5;</mi><mi>&#x003B8;</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002B;</mo><msub><mi>&#x003C3;</mi><mi>t</mi></msub><mi>N</mi><mo stretchy="false">&#x00028;</mo><mn>0</mn><mo>&#x0002C;</mo><mn>1</mn><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>where first x_t is random noise at T=1000, and the alphas are shorthands:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>&#x003B1;</mi><mi>t</mi></msub><mo>&#x0003D;</mo><mn>1</mn><mo>&#x02212;</mo><msub><mi>&#x003B2;</mi><mi>t</mi></msub></mrow></math>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mover><mrow><msub><mi>&#x003B1;</mi><mi>t</mi></msub></mrow><mo stretchy="true">&#x000AF;</mo></mover><mo>&#x0003D;</mo><msubsup><mo>&#x0220F;</mo><mrow><mi>i</mi><mo>&#x0003D;</mo><mn>0</mn></mrow><mi>t</mi></msubsup><msub><mi>&#x003B1;</mi><mi>i</mi></msub></mrow></math>
+
+<p>and we can use, among other options:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>&#x003C3;</mi><mo>&#x0003D;</mo><msqrt><mrow><msub><mi>&#x003B2;</mi><mi>t</mi></msub></mrow></msqrt></mrow></math>
+
+<p>Although this equation has a lot going on, most of it is just coefficients that scale things correctly. To make things easier to look at:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>x</mi><mrow><mi>t</mi><mo>&#x02212;</mo><mn>1</mn></mrow></msub><mo>&#x0003D;</mo><msub><mi>c</mi><mn>1</mn></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x02212;</mo><msub><mi>c</mi><mn>2</mn></msub><msub><mi>&#x003F5;</mi><mi>&#x003B8;</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002B;</mo><msub><mi>c</mi><mn>3</mn></msub><mi>N</mi><mo stretchy="false">&#x00028;</mo><mn>0</mn><mo>&#x0002C;</mo><mn>1</mn><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>where again, our model is epsilon parameterized by theta, taking as input the current noised image and time t, and predicting the currently present noise, which we partially subtract away.</p>
+
+<p>There are a few things to note about this sampling method. Firstly, each update to our datapoint towards a clean generation requires a pass through the network to predict the current noise. This means that generating a datapoint (sampling from our data distribution) requires T=1000 inference passes, which is pretty slow. This is an inconvenience for image generation, and a pretty big drawback for something like diffusion policies which need to command a real time system.</p>
+
+<p>The second thing to note is the added noise at the end. We are both removing and adding noise in this process (hopefully adding less than we are removing)! Intuitively, we are sort of "growing" a generation, and sprinkling some randomness in there helps us slowly converge to something good, much like stochastic gradient descent benefits from randomness.</p>
+
+<h3>Improvements</h3>
+
+<p>The DDIM paper reformulates DDPM such that we can remove the noise term, and do not need to follow the reverse process one step at a time. Instead, we can make jumps of several steps which greatly speeds up our generation. A major practical advantage is that we can reuse the model trained with DDPM:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>x</mi><mrow><mi>t</mi><mo>&#x02212;</mo><mn>1</mn></mrow></msub><mo>&#x0003D;</mo><msqrt><mrow><msub><mi>&#x003B1;</mi><mrow><mi>t</mi><mo>&#x02212;</mo><mn>1</mn></mrow></msub></mrow></msqrt><mrow><mo stretchy="true" fence="true" form="prefix">&#x00028;</mo><mfrac><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x02212;</mo><msqrt><mrow><mn>1</mn><mo>&#x02212;</mo><msub><mi>&#x003B1;</mi><mi>t</mi></msub></mrow></msqrt><msub><mi>&#x003F5;</mi><mi>&#x003B8;</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow><mrow><msqrt><mrow><msub><mi>&#x003B1;</mi><mi>t</mi></msub></mrow></msqrt></mrow></mfrac><mo stretchy="true" fence="true" form="postfix">&#x00029;</mo></mrow><mo>&#x0002B;</mo><msqrt><mrow><mn>1</mn><mo>&#x02212;</mo><msub><mi>&#x003B1;</mi><mrow><mi>t</mi><mo>&#x02212;</mo><mn>1</mn></mrow></msub></mrow></msqrt><msub><mi>&#x003F5;</mi><mi>&#x003B8;</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>In an extreme case, the Adversarial Diffusion Distillation (ADD) paper distills the reverse diffusion process into a secondary model, allowing for single-step generation. I have not explored this yet for diffusion policies but it seems like it could unlock significant capabilities for real-time control. ADD seems to be one of the key innovations used a Black Forest Labs, creators of the Flux series of image generation model.</p>
+
+<p>Another way to speed things up is latent diffusion, in which the image is first compressed into a latent vector that is the subject of the diffusion process. A latent representation of the image is generated, and finally a true image is reconstructed from this latent version. If you are dealing with large pieces of data (i.e. an image with lots of pixels), this reduces the size of the data that is flowing through the model.</p>
+
+<p>This ended up being a pretty big post, so will stop here. The next one will examine implementing DDPM for image generation with a U-Net architecture.</p>
+
+<h4>References</h4>
+
+<ul>
+<li><p>DDPM: <a href="https://arxiv.org/pdf/2006.11239">https://arxiv.org/pdf/2006.11239</a></p></li>
+<li><p>DDIM: <a href="https://arxiv.org/pdf/2010.02502">https://arxiv.org/pdf/2010.02502</a></p></li>
+<li><p>ADD: <a href="https://arxiv.org/pdf/2311.17042">https://arxiv.org/pdf/2311.17042</a></p></li>
+<li><p>DDIM Explanation by Tidiane: <a href="https://www.youtube.com/watch?v=IVcl0bW3C70">https://www.youtube.com/watch?v=IVcl0bW3C70</a></p></li>
+<li><p>Diffusion vs Autoregression by Algorithmic Simplicity: <a href="https://www.youtube.com/watch?v=zc5NTeJbk-k">https://www.youtube.com/watch?v=zc5NTeJbk-k</a></p></li>
+</ul>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/diffusion_3/diffusion3.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_3/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 3</p>
+<p class='postpreview_subtitle'>Playing CarRacing-v3 with Diffusion</p>
+<p class='postpreview_date'>November 1, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_2/diffusion2.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 2</p>
+<p class='postpreview_subtitle'>Generating Images</p>
+<p class='postpreview_date'>October 30, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_1/diffusion1.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 1</p>
+<p class='postpreview_subtitle'>How does Diffusion Work?</p>
+<p class='postpreview_date'>October 20, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../code.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:10%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>

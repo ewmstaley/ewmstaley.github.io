@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PPO</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="PAGETITLE" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="My notes on proximal policy optimization." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../code.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../posts.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Proximal Policy Optimization (PPO)</h1>
+
+<h2>Algorithm Review and Notes</h2>
+
+<p class='author'>October 1, 2024</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Note: The PPO implementation I use for my work is available <a href="https://github.com/ewmstaley/ppo_mpi_base/tree/main">here</a>.</p>
+
+<h3>The Big Idea</h3>
+
+<p>This post assumes you are somewhat familiar with RL already. To be brief- Proximal Policy Optimization (PPO) is a popular technique in deep reinforcement learning. We have some environment that we can interact with: it provides us a current "state", and we supply an "action" to take from that state. It then responds with the consequences of that action: the resulting new state and a reward, a numerical quantity indicating our performance in the environment. Our goal is to learn a neural network for which we can input a current state, and the output will be an action which optimizes our total collected reward over one "episode" (one play) of the environment.</p>
+
+<p>In fact, PPO learns two neural networks simultaneously:</p>
+
+<ul>
+<li><p>The policy network, which takes states as input and outputs a distribution over actions. This is what we really care about.</p></li>
+<li><p>The value network, which measures the expected returns from a given state if we were to follow our policy. This is used to estimate "how good" a current state is for us to be in, to put it very informally.</p></li>
+</ul>
+
+<p>PPO is <strong>online</strong>, meaning that we actively interact with the environment to collect data about it. PPO is also <strong>on-policy</strong>, meaning that we update our model(s) using the latest data collected by the policy. Our models are not necessarily useful beyond understanding the current policy.</p>
+
+<p>Because PPO is online and on-policy, we need to constantly interact with the environment during training to understand the behavior of the policy. The high-level algorithm is as follows:</p>
+
+<div class='algo'>
+
+<p><strong>PPO: Repeat until converged:</strong></p>
+
+<ol>
+<li><p>Use the policy to collect data from the environment.</p></li>
+<li><p>Use this data to update the policy:</p>
+
+<ul>
+<li>The policy should predict actions proportional to how beneficial they are.</li>
+</ul></li>
+<li><p>Use this data to update the value network:</p>
+
+<ul>
+<li>The value function should predict the expected return from each state (the experienced return).</li>
+</ul></li>
+<li><p>Throw away the data: it no longer reflects the current policy's behavior.</p></li>
+</ol>
+
+</div>
+
+<p>What is really nice about this setup (or wasteful if you care about data efficiency) is that it is massively parallelizable if we want it to be. At no point do we store data beyond a single iteration, so we can kick off many copies of this and churn through tons of data if we want to:</p>
+
+<div class='algo'>
+
+<p><strong>PPO Parallel: Repeat until converged:</strong></p>
+
+<ol>
+<li><p>Use the policy to collect data from the environment across N copies of the algorithm, each with their own environment instance.</p></li>
+<li><p>Use this data to update the policy:</p>
+
+<ul>
+<li><p>Compute a local update for the policy based on locally collected data</p></li>
+<li><p>Synchronize the update among all copies (average across copies)</p></li>
+<li><p>Apply update</p></li>
+</ul></li>
+<li><p>Use this data to update the value network:</p>
+
+<ul>
+<li><p>Compute a local update for the value network based on locally collected data</p></li>
+<li><p>Synchronize the update among all copies (average across copies)</p></li>
+<li><p>Apply update</p></li>
+</ul></li>
+<li><p>Throw away the data: it no longer reflects the current policy's behavior.</p></li>
+</ol>
+
+</div>
+
+<p>Hopefully the data collection piece needs no further explanation, but the update steps definitely do.</p>
+
+<h3>The  Value Loss Function</h3>
+
+<p>Our value network should predict the expected discounted return of each state, and from our data collection we have direct experience of the returns we collect after a given state, so we have everything we need. For every state along a collected trajectory, we calculate:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>V</mi><mrow><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi></mrow></msub><mo>&#x0003D;</mo><mrow><mo stretchy="true" fence="true" form="prefix">[</mo><msubsup><mo>&#x02211;</mo><mrow><mi>t</mi><mo>&#x0003D;</mo><mn>0</mn></mrow><mrow><mi>T</mi></mrow></msubsup><msup><mi>&#x003B3;</mi><mi>t</mi></msup><mi>r</mi><mo stretchy="true" fence="true" form="postfix">]</mo></mrow><mo>&#x0002B;</mo><msup><mi>&#x003B3;</mi><mi>T</mi></msup><mi>V</mi><mo stretchy="false">&#x00028;</mo><mi>l</mi><mi>a</mi><mi>s</mi><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>where the current state is "state zero" and the trajectory ends at state T. The last term is a bit of a subtlety- if we stopped data collection short of a terminal condition, we use <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>V</mi><mo stretchy="false">&#x00028;</mo><mi>l</mi><mi>a</mi><mi>s</mi><mi>t</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0003D;</mo><mi>V</mi><mo stretchy="false">&#x00028;</mo><msub><mi>s</mi><mi>T</mi></msub><mo stretchy="false">&#x00029;</mo></mrow></math> to estimate future returns beyond our experience (aka "bootstrapping"). If we stopped because the episode actually ended, we use <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>V</mi><mo stretchy="false">&#x00028;</mo><mi>l</mi><mi>a</mi><mi>s</mi><mi>t</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0003D;</mo><mn>0</mn></mrow></math> to indicate no future returns.</p>
+
+<p>Our loss function is then just the MSE against this target.</p>
+
+<h3>The Policy Loss Function</h3>
+
+<p>The policy update is the primary contribution of PPO. I will just try to build some intuition around it- for a full derivation starting with the policy gradient see <a href="https://lilianweng.github.io/posts/2018-04-08-policy-gradient/#ppo">Lillian Weng's explanation</a>.</p>
+
+<p>We wish to update our policy according to the objective:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>J</mi><mo>&#x0003D;</mo><msub><mi>E</mi><mrow><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mi>&#x0007E;</mi><mi>&#x003C0;</mi></mrow></msub><mrow><mo stretchy="true" fence="true" form="prefix">[</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>a</mi><mo stretchy="false">&#x0007C;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mi>A</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="true" fence="true" form="postfix">]</mo></mrow></mrow></math>
+
+<p>where our policy (the probability of a given action) is denoted by <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>&#x003C0;</mi></mrow></math>, and <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>A</mi></mrow></math> is the advantage of each transition- a measurement of how much better or worse the outcome of the action was than we would expect based on the state alone. If we maximize this quantity, we should have high probability associated with high advantage (and conversely, low probability with low advantage). See the end section for a breakdown of this quantity.</p>
+
+<p>For now, note that we do not need the calculation of advantage to be part of our computation graph- it is simply a weighting term that we calculate separately and use to weight our policy outputs. This gives us something like the following:</p>
+
+<div class='algo'>
+
+<p>Update Policy:</p>
+
+<ol>
+<li><p>Compute the advantage for each (s,a) transition using the value function (which has not been updated yet).</p></li>
+<li><p>For a minibatch of (s,a) tuples:</p>
+
+<ul>
+<li><p>For each (s,a) transition, determine how probable a was under the policy.</p></li>
+<li><p>Update the policy to maximize prob(a)*A</p></li>
+</ul></li>
+</ol>
+
+</div>
+
+<p>Note that in a automatic differentiation framework we can literally just set the loss to the negative of this quantity in order to maximize it. When I was new to RL this was hard to get my head around since I was used to seeing loss functions as nice packaged things from a library, but it can really just be any quantity we want to maximize or minimize.</p>
+
+<p>Practically, we just take a minibatch of experience and average over it, giving us:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>J</mi><mo>&#x0003D;</mo><mi>A</mi><mi>v</mi><mi>g</mi><mrow><mo stretchy="true" fence="true" form="prefix">&#x00028;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>a</mi><mo stretchy="false">&#x0007C;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mi>A</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="true" fence="true" form="postfix">&#x00029;</mo></mrow></mrow></math>
+
+<h4>Improving this loss function:</h4>
+
+<p>There are two changes we make to this to arrive at the PPO loss function. Firstly, the above technique is only valid for a single network update. As soon as we change the policy, we have a bit of an issue: the data was generated under a different policy than we are now working with. This is a problem because our objective is an expectation: a weighted average over our data proportional to how probable the data is to occur. When we collect our data, we also experience our data according to how probable it is, so everything is fine for the first update. If we take a simple average over the data, it empirically reflects the underlying probability and therefore our expectation is valid. </p>
+
+<p>This is a subtle but critical point to understanding PPO. After we change the policy network, we need to correct for the fact that the data itself would have different probabilities under the updated policy. To make this change, we can use <a href="https://builtin.com/articles/importance-sampling">importance sampling</a>: we simply divide by the probability of the "old" policy (the one that collected the data). This allows us to estimate the probabilities under the current policy even though they were sampled under the old one:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>J</mi><mo>&#x0003D;</mo><mi>A</mi><mi>v</mi><mi>g</mi><mrow><mo stretchy="true" fence="true" form="prefix">&#x00028;</mo><mfrac><mrow><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>a</mi><mo stretchy="false">&#x0007C;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo></mrow><mrow><msub><mi>&#x003C0;</mi><mrow><mi>o</mi><mi>l</mi><mi>d</mi></mrow></msub><mo stretchy="false">&#x00028;</mo><mi>a</mi><mo stretchy="false">&#x0007C;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo></mrow></mfrac><mi>A</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="true" fence="true" form="postfix">&#x00029;</mo></mrow></mrow></math>
+
+<p>To implement this, we just need to record the probability of the data when it was collected vs when we are doing our update:</p>
+
+<div class='algo'>
+
+<p>Update policy (with collected data, including the original probabilities of the action at the time they were collected):</p>
+
+<ol>
+<li><p>Compute the advantage for each (s,a) transition using the value function (which has not been updated yet).</p></li>
+<li><p>For a minibatch of (s,a) tuples:</p>
+
+<ul>
+<li><p>For each (s,a) transition, determine how probable a was under the policy.</p></li>
+<li><p>Update the policy to maximize (prob(a)/original_prob(a))*A</p></li>
+</ul></li>
+</ol>
+
+</div>
+
+<p>The second addition we make to the loss function is to prevent it from making egregiously large updates to our policy. We want to make sure that our new policy does not stray too far from the previous one which generated our data in the first place (i.e. we want the current policy to stay in the proximity of the old one, hence the name PPO).</p>
+
+<p>We actually already have a measurement of how "far apart" the two policies are: we just took a ratio of their probabilities in the previous step. If this ratio was, say, 1.2, it would indicate that under the new policy an action is 20% more probable than it was originally. If the ratio is 0.9, it indicates said action is 10% less probable.</p>
+
+<p>So, to prevent our updates becoming out-of-whack, we simply clip this correction factor to be within some small boundary around 1, usually [0.8-1.2] or [0.9-1.1]. If it is outside of this range, we simply clip it and thus represent the datapoint as being closer to the original policy than it really is:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>J</mi><mo>&#x0003D;</mo><mi>A</mi><mi>v</mi><mi>g</mi><mrow><mo stretchy="true" fence="true" form="prefix">&#x00028;</mo><mi>k</mi><mi>A</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="true" fence="true" form="postfix">&#x00029;</mo></mrow></mrow></math>
+
+<p>where:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>k</mi><mo>&#x0003D;</mo><mi>c</mi><mi>l</mi><mi>i</mi><mi>p</mi><mo stretchy="false">&#x00028;</mo><mfrac><mrow><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>a</mi><mo stretchy="false">&#x0007C;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo></mrow><mrow><msub><mi>&#x003C0;</mi><mrow><mi>o</mi><mi>l</mi><mi>d</mi></mrow></msub><mo stretchy="false">&#x00028;</mo><mi>a</mi><mo stretchy="false">&#x0007C;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo></mrow></mfrac><mo>&#x0002C;</mo><mn>1</mn><mo>&#x02212;</mo><mi>&#x003F5;</mi><mo>&#x0002C;</mo><mn>1</mn><mo>&#x0002B;</mo><mi>&#x003F5;</mi><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>Note that this does not actually enforce our new policy from straying too far. It simply prevents any one datapoint from dominating our update. If the ratio of the two policies is something extreme for a single datapoint ins our minibatch (say 100x more probably under the new policy), we clip 100 to 1+epsilon so that it doesn't destroy our update.</p>
+
+<p>To more fully prevent the divergence of the policies, we can also monitor this ratio during the update steps and stop updating if it gets too extreme. Putting these together, we can often update our policy many times from a single data collection iteration.</p>
+
+<p>Finally, we take the minimum between <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>k</mi></mrow></math> and the un-clipped objective. This prevents our policy from assigning huge probabilities to high-performing actions (or extremely low probabilities to low-performing actions) during a single iteration. This gives us the actual, final, PPO objective:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>J</mi><mo>&#x0003D;</mo><mi>A</mi><mi>v</mi><mi>g</mi><mrow><mo stretchy="true" fence="true" form="prefix">&#x00028;</mo><mi>m</mi><mi>i</mi><mi>n</mi><mo stretchy="false">&#x00028;</mo><mspace width="1em" /><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>a</mi><mo stretchy="false">&#x0007C;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mi>A</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><mspace width="1em" /><mi>k</mi><mi>A</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mspace width="1em" /><mo stretchy="false">&#x00029;</mo><mo stretchy="true" fence="true" form="postfix">&#x00029;</mo></mrow></mrow></math>
+
+<p>One easy thing to forget when reasoning about this update is that advantages can be negative (In fact, advantages from a single data collection round are often zero-centered for stability). This means that a term in the above equation which is very large does not necessarily reflect high probability. It could also reflect low probability and negative advantage. Or, since they are multiplied, it could represent a very average probability against a very high advantage. Both of these terms are working in tandem.</p>
+
+<h3>My "Implementation"</h3>
+
+<p>I put implementation in quotes here because in this case I cannot say I wrote most of it; the implementation I use currently is derived from <a href="https://github.com/openai/spinningup">spinning up</a>, a clean and readable implementation of RL algorithms from OpenAI. I did some restructuring to allow for more customization, namely:</p>
+
+<ul>
+<li><p>Separating the main algorithm flow into its own routine, so that it is easier to see the big picture. A separate work class implements routines for data collection, policy updates, and value updates.</p></li>
+<li><p>Allowing the policy and value function to wrap arbitrary torch modules, so that you can put something fancy in there if you want to.</p></li>
+<li><p>Some simplified MPI routines like <code>sync_weights()</code> and <code>average_gradients()</code>.</p></li>
+</ul>
+
+<p>I also made some changes:</p>
+
+<ul>
+<li><p>Removed support for a combined policy-value network, since I'm not sure that is widely used anymore. It feels a lot cleaner to keep them separate.</p></li>
+<li><p>Some estimates of FPS and time remaining. PPO can take a lonnnnnng time to work, so its nice to know how long you need to wait for it (or if you should just go to bed).</p></li>
+<li><p>Added support for an entropy coefficient to encourage higher-entropy policies, which may help with convergence and stability.</p></li>
+</ul>
+
+<p>Finally, I added some hooks to support algorithms like GAIL. More on that in another post.</p>
+
+<hr />
+
+<h3>Additional Notes</h3>
+
+<h4>Advantage</h4>
+
+<p>The Advantage measures the difference in expected discounted return between taking some action from a state and simply being in that state (without taking an action). The expected return for a state on its own is exactly what is provided by the value function, <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>V</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo></mrow></math>. </p>
+
+<p>In other areas of RL, we may also predict the returns after an action is taken, represented as <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>Q</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo></mrow></math>, but in PPO we can instead look directly at the data we collect: after taking some action from a state, were the experienced returns greater or lesser than what we would have predicted with our value network?</p>
+
+<p>Note that since PPO is on-policy, all of our measurements reflect operating under the current policy. <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>V</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo></mrow></math> represents the expected return from the state <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>s</mi></mrow></math> if the current policy is followed. If our value function were perfect and we fully understood the current policy, we would have zero advantage (on average): the difference between our expected returns and the true returns would be zero (on average), as we would perfectly predict them. So here, <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>A</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo></mrow></math> is measuring how much better or worse did we fared than what we would predict based on our current understanding of the policy.</p>
+
+<p>So, we need to actually quantify this, and we have a lot of options. At one extreme, we could measure how well we fared over just a single step- our reward plus expected future value of the resulting state, compared to our original understanding of the value of the original state:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msup><mi>A</mi><mn>0</mn></msup><mo stretchy="false">&#x00028;</mo><msub><mi>s</mi><mn>0</mn></msub><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0003D;</mo><mi>r</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mi>V</mi><mo stretchy="false">&#x00028;</mo><msub><mi>s</mi><mn>1</mn></msub><mo stretchy="false">&#x00029;</mo><mo>&#x02212;</mo><mi>V</mi><mo stretchy="false">&#x00028;</mo><msub><mi>s</mi><mn>0</mn></msub><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>At the other extreme, we could look at the entire trajectory that we experienced. How did we fare over many steps, compared to what was expected?:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msup><mi>A</mi><mi>T</mi></msup><mo stretchy="false">&#x00028;</mo><msub><mi>s</mi><mn>0</mn></msub><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0003D;</mo><mrow><mo stretchy="true" fence="true" form="prefix">[</mo><msubsup><mo>&#x02211;</mo><mrow><mi>t</mi><mo>&#x0003D;</mo><mn>0</mn></mrow><mrow><mi>T</mi></mrow></msubsup><msup><mi>&#x003B3;</mi><mi>t</mi></msup><mi>r</mi><mo stretchy="true" fence="true" form="postfix">]</mo></mrow><mo>&#x0002B;</mo><msup><mi>&#x003B3;</mi><mi>T</mi></msup><mi>V</mi><mo stretchy="false">&#x00028;</mo><mi>l</mi><mi>a</mi><mi>s</mi><mi>t</mi><mo stretchy="false">&#x00029;</mo><mo>&#x02212;</mo><mi>V</mi><mo stretchy="false">&#x00028;</mo><msub><mi>s</mi><mn>0</mn></msub><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>In between <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mn>0</mn></mrow></math> and <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>T</mi></mrow></math>, we could choose any other horizon and it would also be valid.</p>
+
+<p>As all of these provide different estimates over our understanding of our data, we can also average over all of them, which is called <a href="https://towardsdatascience.com/reinforcement-learning-td-%CE%BB-introduction-686a5e4f4e60">TD-lambda</a> returns. All of the possible N-step returns are weighted by <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mi>&#x003BB;</mi><mo stretchy="false">&#x00029;</mo><msup><mi>&#x003BB;</mi><mrow><mi>n</mi><mo>&#x02212;</mo><mn>1</mn></mrow></msup></mrow></math>, such that all weights sum to 1.0. Typically a value around 0.95 is used for lambda.</p>
+
+<p>There are several tricks to efficiently compute all of these returns for all steps of a trajectory, so the code for computing these returns may initially be foreign looking. In this case, the advantages are computed within the buffer when the trajectory ends. Look there for more details. Also note, the advantages are normalized over all data collected, since we really only care how our actions fared relative to each other.</p>
+
+<h4>Parallelization</h4>
+
+<p>The parallelization in PPO is different from other areas of software, in which parallelization is used to get through a set amount of data more quickly. If we have 1000 things to process and we can split this into 10 independent jobs, we can do 100 things on each job and thus be done 10 times faster.</p>
+
+<p>This is not why we parallelize in PPO. We parallelize here so that our updates reflect large quantities of data and are therefore more stable / better updates. If we do N updates on one thread, or N updates on 20 threads, either way we have updated the network 20 times (and they both take a similar amount of time.) They key difference is, the updates over 20 threads will be better updates, since they give us a better understanding of the policy.</p>
+
+<p>IMO, if you are using PPO, don't worry about data efficiency. That's not really what it is designed for- just run it on as many cpu cores as you can live without for as long as you are willing to wait (or until it clearly converges).</p>
+
+<h4>Policy Network</h4>
+
+<p>It is worth looking at the policy network briefly in code to point out some aspects of how it works:</p>
+
+<pre><code>
+class GaussianHead(Actor):
+
+
+
+    def __init__(self, stem, act_dim):
+
+        super().__init__()
+
+        log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
+
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+
+        self.mu_net = stem
+
+
+
+    def _distribution(self, obs):
+
+        mu = self.mu_net(obs)
+
+        std = torch.exp(self.log_std)
+
+        return Normal(mu, std)
+
+
+
+    def _log_prob_from_distribution(self, pi, act):
+
+        return pi.log_prob(act).sum(axis=-1)    # Last axis sum needed for Torch Normal distribution
+
+
+
+    def forward(self, obs, act=None):
+
+        # Produce action distributions for given observations, and 
+
+        # optionally compute the log likelihood of given actions under
+
+        # those distributions.
+
+        pi = self._distribution(obs)
+
+        entropy = pi.entropy()
+
+        logp_a = None
+
+        if act is not None: logp_a = self._log_prob_from_distribution(pi, act)
+
+        return pi, logp_a, entropy
+
+</code></pre>
+
+<p>The forward function is interesting- it can be used in one of two ways. A state is always provided, and it computes a Gaussian distribution (in the continuous action case) over actions to output. If an action is also provided, we can now query how probable that action is under the policy from that state. This allows us to collect data with our policy, and later ask how probable it is (even after we have updated the policy a few times). If no action is provided, we can sample one from the returned distribution.</p>
+
+<p>Also note that the standard deviation is a separate parameter, and is not conditioned on the state. It is more a property of the policy itself- how confident are we about each action dimension, in general? This differs from the typical approach in SAC, in which the deviation is calculated on a per-state basis.</p>
+
+<p>Possible future topic for their own posts: A deeper dive into TD-lambda and how to calculate it.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/diffusion_3/diffusion3.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_3/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 3</p>
+<p class='postpreview_subtitle'>Playing CarRacing-v3 with Diffusion</p>
+<p class='postpreview_date'>November 1, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_2/diffusion2.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 2</p>
+<p class='postpreview_subtitle'>Generating Images</p>
+<p class='postpreview_date'>October 30, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_1/diffusion1.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 1</p>
+<p class='postpreview_subtitle'>How does Diffusion Work?</p>
+<p class='postpreview_date'>October 20, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../code.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:10%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>

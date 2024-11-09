@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SAC</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="PAGETITLE" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover1.png" />
+  <meta property="og:description" content="Soft Actor-Critic notes." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../code.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../posts.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Soft Actor-Critic (SAC)</h1>
+
+<h2>Algorithm Review and Notes</h2>
+
+<p class='author'>October 1, 2024</p>
+
+<div class='coverwrap' style='background-image:url("cover1.png");'></div>
+
+<p>Note: The SAC implementation I use for my work is available <a href="https://github.com/ewmstaley/sac_base/tree/main">here</a>. This post makes lots of comparisons to PPO, which I described in an earlier post.</p>
+
+<h3>Overview</h3>
+
+<p>Soft Actor-Critic (SAC) is a widely used algorithm in reinforcement learning, possibly the most widely used besides PPO (as far as I know). While PPO is an <strong>on-policy</strong> approach, constantly requiring new data collection and often parallelized, SAC is <strong>off-policy</strong>, meaning that it can learn from any data that reflects interacting with the environment. In practice, SAC retains a buffer of interactions that include a history of what it has encountered during training, and SAC can leverage any of these experiences during a network update. This allows SAC to be much more sample-efficient than PPO, and we typically do not need parallelization to aid in data collection. Note that both policies are <strong>online</strong>, meaning they actively collect data (it can be easy to confuse online with on-policy).</p>
+
+<p>Stealing from my PPO post:</p>
+
+<blockquote>
+  <p>We have some environment that we can interact with: it provides us a current "state", and we supply an "action" to take from that state. It then responds with the consequences of that action: the resulting new state and a reward, a numerical quantity indicating our performance in the environment. Our goal is to learn a neural network for which we can input a current state, and the output will be an action which optimizes our total collected reward over one "episode" (one play) of the environment.</p>
+</blockquote>
+
+<p>SAC learns two neural networks (actually more than this, keep reading...):</p>
+
+<ul>
+<li><p>The policy, which takes the current state and outputs an action that should maximize long-term reward. Learning this policy is the main goal of SAC (and RL in general)</p></li>
+<li><p>A Q-value function, which takes as input a state and an action from that state, and predicts the future discounted reward that can be experienced if we continue from there. Compared to the on-policy vaule function in PPO, there are two main differences:</p>
+
+<ul>
+<li><p>We commit to an action, rather than simple evaluating a state. This is what makes this a "Q-value" instead of a "value".</p></li>
+<li><p>Our network is trained with off-policy data, meaning that it measures something more general than the current policy. Rather than Q(s,a) measuring the potential returns from following the current policy, we are measuring something like "the best returns we could expect based on our behavior so far during training". While ideally it might simply measure the best possible returns from a (state,action) pair, the training data does come from our history of policies.</p></li>
+</ul></li>
+</ul>
+
+<p>To use these networks and update them, we have the following high-level algorithm:</p>
+
+<div class='algo'>
+
+<p><strong>SAC: Repeat until converged:</strong></p>
+
+<ol>
+<li><p>Use the policy to collect data from the environment. Add this to a large rolling history of observations, maybe one million or more.</p></li>
+<li><p>Every few steps (~50), grab some data from our buffer to update the Q-network:</p>
+
+<ul>
+<li>The Q-network should predict the expected returns from each transition onwards. We use a one-step Bellman update for this.</li>
+</ul></li>
+<li><p>Every few steps (~50), grab some data from our buffer to update the policy:</p>
+
+<ul>
+<li>The policy should try to maximize Q(s,a). If we predict an action from each state, we can feed this into our (frozen) Q-network and simply try to maximize the output. Backprop will flow through the Q-network into the policy.</li>
+</ul></li>
+</ol>
+
+</div>
+
+<p>Most of the complexity here lies in the Q-network, which we rely on to update our policy. Therefore, we use a lot of tricks to make this as accurate as possible. I will break this down first, and then discuss the policy network.</p>
+
+<h3>Nominal Q-Network Update</h3>
+
+<p>The Q-network is nominally updated with the Bellman equation, which simply takes an observed step and ties together the Q-value before and after the step: the Q-value of the current step (s,a) should be equal to the resulting reward and the discounted Q-value of a hypothetical subsequent step using the policy:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>Q</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x02190;</mo><mi>r</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mi>Q</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>where the second term is omitted if the step is terminal. Using this update, we bootstrap our Q-values by tying the target values to the output of the Q-network itself. The one thing anchoring this update to an interpretable value is the occasional terminal step, in which case only the reward is used as a target.</p>
+
+<p>Q-values have a tendency to run away from you (be vastly overestimated) when learned this way, because errors can easily propagate through our updates. We are, after all, using Q to produce the training target for itself. There are two interventions we can take to make this more stable:</p>
+
+<p>Firstly, we can learn multiple estimates of Q instead of one (multiple Q networks), and take the minimum of these when computing the target. Generally we just use two Q networks. Our update for both networks now uses the minimum target:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi><mo>&#x0003D;</mo><mi>m</mi><mi>i</mi><mi>n</mi><mo stretchy="false">&#x00028;</mo><msub><mi>Q</mi><mn>1</mn></msub><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><msub><mi>Q</mi><mn>2</mn></msub><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>Q</mi><mn>1</mn></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x02190;</mo><mi>r</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mo>&#x0002A;</mo><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi></mrow></math>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>Q</mi><mn>2</mn></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x02190;</mo><mi>r</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mo>&#x0002A;</mo><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi></mrow></math>
+
+<p>Secondly, we use delayed Q-networks: copies of the Q-network which are rolling averages of the actively updated Q-networks. This means we in total need to maintain four Q-networks: two current networks which are noisy, and two delayed networks which are rolling averages of the first two. Our update is the same as above except we use the delayed networks as our targets:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi><mo>&#x0003D;</mo><mi>m</mi><mi>i</mi><mi>n</mi><mo stretchy="false">&#x00028;</mo><msub><mi>Q</mi><mrow><msub><mn>1</mn><mrow><mi>d</mi><mi>e</mi><mi>l</mi><mi>a</mi><mi>y</mi><mi>e</mi><mi>d</mi></mrow></msub></mrow></msub><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><msub><mi>Q</mi><mrow><msub><mn>2</mn><mrow><mi>d</mi><mi>e</mi><mi>l</mi><mi>a</mi><mi>y</mi><mi>e</mi><mi>d</mi></mrow></msub></mrow></msub><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>And we roll our delayed networks via polyak averaging:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>Q</mi><mrow><msub><mi>i</mi><mrow><mi>d</mi><mi>e</mi><mi>l</mi><mi>a</mi><mi>y</mi><mi>e</mi><mi>d</mi></mrow></msub></mrow></msub><mo>&#x0003D;</mo><mi>k</mi><mo>&#x0002A;</mo><msub><mi>Q</mi><mrow><msub><mi>i</mi><mrow><mi>d</mi><mi>e</mi><mi>l</mi><mi>a</mi><mi>y</mi><mi>e</mi><mi>d</mi></mrow></msub></mrow></msub><mo>&#x0002B;</mo><mo stretchy="false">&#x00028;</mo><mn>1.0</mn><mo>&#x02212;</mo><mi>k</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0002A;</mo><msub><mi>Q</mi><mi>i</mi></msub></mrow></math>
+
+<p>where k is usually something like 0.99 or 0.999.</p>
+
+<h3>Nominal Policy Update</h3>
+
+<p>The policy update is a bit simpler, but can be strange if you have not seen a mechanism like it before. We sample some states from our buffer, predict actions with our policy, and pass the whole resulting (s,a) into a (frozen) Q-network. We then use the output of the Q-network as a loss to maximize. Backprop will trace through Q-network, through the action, and into the policy network, updating it such that it outputs an action that would maximize Q at that state.</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>L</mi><mi>o</mi><mi>s</mi><msub><mi>s</mi><mrow><mi>&#x003C0;</mi></mrow></msub><mo>&#x0003D;</mo><mo>&#x02212;</mo><msub><mi>Q</mi><mrow><mi>f</mi><mi>r</mi><mi>o</mi><mi>z</mi><mi>e</mi><mi>n</mi></mrow></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>Just as in the Q-network update, we actually use the minimum of the two current networks:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>L</mi><mi>o</mi><mi>s</mi><msub><mi>s</mi><mrow><mi>&#x003C0;</mi></mrow></msub><mo>&#x0003D;</mo><mo>&#x02212;</mo><mi>m</mi><mi>i</mi><mi>n</mi><mo stretchy="false">&#x00028;</mo><msub><mi>Q</mi><mrow><msub><mn>1</mn><mrow><mi>f</mi><mi>r</mi><mi>o</mi><mi>z</mi><mi>e</mi><mi>n</mi></mrow></msub></mrow></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><msub><mi>Q</mi><mrow><msub><mn>2</mn><mrow><mi>f</mi><mi>r</mi><mi>o</mi><mi>z</mi><mi>e</mi><mi>n</mi></mrow></msub></mrow></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>Note that we do not use the delayed networks here. We have already used them to stabilize the learning process via the Q update.</p>
+
+<h3>Making Things "Soft": Adding Entropy</h3>
+
+<p>Taken together, the Q-network updates and policy updates give us an actor-critic algorithm. However, we can modify this further by encouraging our policy to learn a wide distribution where possible (i.e. increased entropy), which has very helpful exploration properties to uncover behaviors during the learning process. Concretely, we model our policy as a normal distribution over actions and encourage (via additional loss terms) the standard deviation to be higher where possible. If we absolutely want to maximize performance during deployment, we can just use the mean of this distribution directly.</p>
+
+<p>The entropy of a distribution is defined as the expected negative log-probability:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>H</mi><mo>&#x0003D;</mo><mi>E</mi><mo stretchy="false">[</mo><mo>&#x02212;</mo><mi>l</mi><mi>o</mi><mi>g</mi><mi>P</mi><mo stretchy="false">&#x00028;</mo><mi>x</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">]</mo></mrow></math>
+
+<p>and since we can assume that our minibatch updates take care of all the expectation goodness for us, we can maximize entropy by adding to our loss:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>A</mi><mi>d</mi><mi>d</mi><mi>i</mi><mi>t</mi><mi>i</mi><mi>o</mi><mi>n</mi><mi>a</mi><mi>l</mi><mi>L</mi><mi>o</mi><mi>s</mi><mi>s</mi><mo>&#x0003D;</mo><mi>l</mi><mi>o</mi><mi>g</mi><mo stretchy="false">&#x00028;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>However, we do not want to do this directly. We want to introduce a trade-off which balances the entropy of the policy against the long-term discounted returns that the policy achieves. To achieve this, we can imagine that the policy's entropy at a future state is something we can uncover as we interact with the environment:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>r</mi><mo>&#x0002C;</mo><mi>d</mi><mi>o</mi><mi>n</mi><mi>e</mi><mo>&#x0003D;</mo><mi>e</mi><mi>n</mi><mi>v</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>H</mi><mo>&#x0003D;</mo><mo>&#x02212;</mo><mi>l</mi><mi>o</mi><mi>g</mi><mo stretchy="false">&#x00028;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>When we define Q, we want to capture not only the discounted future rewards but also the discounted entropy of the future, essentially treating the future entropy as an additional reward term:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>Q</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0003D;</mo><mi>r</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mi>H</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mi>Q</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>Since we have two terms that are multiplied by gamma we can group them, and we can substitute the definition of entropy to get our full equation:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>Q</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x02190;</mo><mi>r</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mo stretchy="false">&#x00028;</mo><mi>Q</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x02212;</mo><mi>&#x003B1;</mi><mi>l</mi><mi>o</mi><mi>g</mi><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>where alpha is a coefficient to balance the effect of the entropy term. This equation is used to update Q rather than the pure Bellman update discussed above. More fully, we have:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi><mo>&#x0003D;</mo><mi>m</mi><mi>i</mi><mi>n</mi><mo stretchy="false">&#x00028;</mo><msub><mi>Q</mi><mrow><msub><mn>1</mn><mrow><mi>d</mi><mi>e</mi><mi>l</mi><mi>a</mi><mi>y</mi><mi>e</mi><mi>d</mi></mrow></msub></mrow></msub><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><msub><mi>Q</mi><mrow><msub><mn>2</mn><mrow><mi>d</mi><mi>e</mi><mi>l</mi><mi>a</mi><mi>y</mi><mi>e</mi><mi>d</mi></mrow></msub></mrow></msub><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>Q</mi><mn>1</mn></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x02190;</mo><mi>r</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mo stretchy="false">&#x00028;</mo><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi><mo>&#x02212;</mo><mi>&#x003B1;</mi><mi>l</mi><mi>o</mi><mi>g</mi><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>Q</mi><mn>2</mn></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>a</mi><mo stretchy="false">&#x00029;</mo><mo>&#x02190;</mo><mi>r</mi><mo>&#x0002B;</mo><mi>&#x003B3;</mi><mo stretchy="false">&#x00028;</mo><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi><mo>&#x02212;</mo><mi>&#x003B1;</mi><mi>l</mi><mi>o</mi><mi>g</mi><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><msup><mi>s</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>Additionally, when we update the policy, we want to maximize this term rather than purely maximize Q:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>L</mi><mi>o</mi><mi>s</mi><msub><mi>s</mi><mrow><mi>&#x003C0;</mi></mrow></msub><mo>&#x0003D;</mo><mo>&#x02212;</mo><msub><mi>Q</mi><mrow><mi>f</mi><mi>r</mi><mi>o</mi><mi>z</mi><mi>e</mi><mi>n</mi></mrow></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002B;</mo><mi>&#x003B1;</mi><mi>l</mi><mi>o</mi><mi>g</mi><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<p>More fully, we have:</p>
+
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>L</mi><mi>o</mi><mi>s</mi><msub><mi>s</mi><mrow><mi>&#x003C0;</mi></mrow></msub><mo>&#x0003D;</mo><mo>&#x02212;</mo><mi>m</mi><mi>i</mi><mi>n</mi><mo stretchy="false">&#x00028;</mo><msub><mi>Q</mi><mrow><msub><mn>1</mn><mrow><mi>f</mi><mi>r</mi><mi>o</mi><mi>z</mi><mi>e</mi><mi>n</mi></mrow></msub></mrow></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><msub><mi>Q</mi><mrow><msub><mn>2</mn><mrow><mi>f</mi><mi>r</mi><mi>o</mi><mi>z</mi><mi>e</mi><mi>n</mi></mrow></msub></mrow></msub><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo>&#x0002C;</mo><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo><mo>&#x0002B;</mo><mi>&#x003B1;</mi><mi>l</mi><mi>o</mi><mi>g</mi><mi>&#x003C0;</mi><mo stretchy="false">&#x00028;</mo><mi>s</mi><mo stretchy="false">&#x00029;</mo></mrow></math>
+
+<h3>The Full Algorithm</h3>
+
+<p>To recap, here is the full algorithm of SAC:</p>
+
+<div class='algo'>
+
+<p><strong>SAC: Repeat until converged:</strong></p>
+
+<ol>
+<li><p>Collect experience with the current policy and saved into a large rolling buffer.</p></li>
+<li><p>Every few steps (~50), update the Q-networks. Sample transitions from the buffer and:</p>
+
+<ol>
+<li><p>Update the two current networks using the modified update above, taking the minimum of the two delayed predictions and including entropy maximization.</p></li>
+<li><p>Use polyak averaging to update the delayed Q networks.</p></li>
+</ol></li>
+<li><p>Every few steps (~50), update the Policy. Sample transitions from the buffer and:</p>
+
+<ol>
+<li><p>Freeze the Q-networks</p></li>
+<li><p>Predict the actions from the states, and use the above modified policy loss to backprop through the Q-network and into the policy.</p></li>
+<li><p>Unfreeze the Q-networks</p></li>
+</ol></li>
+</ol>
+
+</div>
+
+<h3>Examining the Policy Network</h3>
+
+<p>The policy network in SAC is a bit more complex than in PPO. For one, since we want to allow the policy to maximize entropy when it can, the standard deviation of the distribution has to be conditioned on the state (not a constant property of the policy). </p>
+
+<p>Additionally, we have some functionality to limit the action outputs to a nice range (-1 to 1), and compute the resulting probabilities. This is not so critical to do for PPO, where we are examining specific actions that were taken and trying to make them more or less likely based on outcomes. If multiple sampled actions all end up having the same outcome due to clipping the actions to a nice range, that doesn't really change our update.</p>
+
+<p>However, SAC needs to account for this because it is looking to maximize the entropy of the whole action distribution, not only the actions that were taken when collecting data. Therefore if actions are clipped, this directly changes the entropy of the distribution of actions we can take.</p>
+
+<p>Adding these changes to the PPO network, we get the following:</p>
+
+<pre><code>
+class SquashedGaussianActor(nn.Module):
+
+
+
+    def __init__(self, obs_dim, act_dim, policy_net_fn, act_limit):
+
+        super().__init__()
+
+        self.net = policy_net_fn(obs_dim, act_dim)
+
+        self.act_limit = act_limit
+
+
+
+    def forward(self, obs, deterministic=False, with_logprob=True):
+
+        mu, log_std = self.net(obs)
+
+        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+
+        std = torch.exp(log_std)
+
+
+
+        # Pre-squash distribution and sample
+
+        pi_distribution = Normal(mu, std)
+
+        if deterministic:
+
+            # Only used for evaluating policy at test time.
+
+            pi_action = mu
+
+        else:
+
+            pi_action = pi_distribution.rsample()
+
+
+
+        if with_logprob:
+
+            # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
+
+            # NOTE: The correction formula is a little bit magic. To get an understanding 
+
+            # of where it comes from, check out the original SAC paper (arXiv 1801.01290) 
+
+            # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
+
+            # Try deriving it yourself as a (very difficult) exercise. :)
+
+            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
+
+            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1)
+
+        else:
+
+            logp_pi = None
+
+
+
+        pi_action = torch.tanh(pi_action)
+
+        pi_action = self.act_limit * pi_action
+
+
+
+        return pi_action, logp_pi
+
+</code></pre>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/diffusion_3/diffusion3.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_3/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 3</p>
+<p class='postpreview_subtitle'>Playing CarRacing-v3 with Diffusion</p>
+<p class='postpreview_date'>November 1, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_2/diffusion2.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 2</p>
+<p class='postpreview_subtitle'>Generating Images</p>
+<p class='postpreview_date'>October 30, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_1/diffusion1.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 1</p>
+<p class='postpreview_subtitle'>How does Diffusion Work?</p>
+<p class='postpreview_date'>October 20, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../code.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:10%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>

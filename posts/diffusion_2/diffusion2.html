@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Generating Images</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="PAGETITLE" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Diffusion to create images of flowers." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../code.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../posts.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Diffusion Policy Part 2</h1>
+
+<h2>Generating Images</h2>
+
+<p class='author'>October 30, 2024</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Implementation <a href="https://github.com/ewmstaley/diffusion_experiments">here</a>. See also: <a href="../diffusion_1/diffusion1.html">Part 1</a> |  <a href="../diffusion_3/diffusion3.html">Part 3</a></p>
+
+<h3>Concrete Implementation Details</h3>
+
+<p>My previous post details my understanding of diffusion (see link above), but I wanted to actually see it in action. Before attempting diffusion policies (<a href="../diffusion_3/diffusion3.html">next post</a>), I tried unconditional generation of images. In this case, images of flowers, because they are colorful and the Oxford Flower dataset has a few thousand of them.</p>
+
+<p>To summarize the last post, our outline for a diffusion model is:</p>
+
+<div class='algo'>
+
+<p><strong>High-Level DDPM Routine</strong></p>
+
+<ol>
+<li><p>Grab a bunch of images and create a process by which we can add varying levels of noise</p></li>
+<li><p>Train a model which can predict, for a noisy image, the noise that is present.</p></li>
+<li><p>Start with pure noise and then repeatedly feed it through this model to predict what noise should be removed. If we do this in many increments we can chip away at the noise until a nice image has been generated.</p></li>
+</ol>
+
+</div>
+
+<p>The main decision remaining is the architecture of our model, and the DDPM paper used a U-Net. A U-Net processes input at multiple scales, allowing it to examine both the details and overall structure of an image. Similar to an autoencoder, it progressively downsizes the input and then upscales it back to full size, but unlike an autoencoder it allows data to skip around the bottleneck at each scale:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="figure1.png" alt="img" /></p>
+
+<p>At each scale we need to design two complementary halves- a module that downsizes the image and a module that scales it up, with a connection in between. I messed this up a few times trying to get all the shapes and scales to line up, so it is important to do things in the right order. During the forward pass, you want to:</p>
+
+<ol>
+<li><p>Process the input with a series of convolutions that do not change the dimensions, but possibly increase the number of channels.</p></li>
+<li><p>Store the result of this to send through the skip connection.</p></li>
+<li><p>Downsize the data with a pooling layer (generally, half the size)</p></li>
+<li><p>Send to the next module (or middle bottleneck)</p></li>
+</ol>
+
+<p>Then, when you are scaling back up the corresponding module should:</p>
+
+<ol>
+<li><p>Upscale the input to the appropriate size (double the size)</p></li>
+<li><p>Concatenate the channels from the skip connection. Now our data temporarily has twice as many channels.</p></li>
+<li><p>Process with a series of convolutions that do not change the dimensions, other than reducing the channels back to the original amount after the concatenation.</p></li>
+</ol>
+
+<p>One pair of the U-Net therefore looks like:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="figure2.png" alt="img" /></p>
+
+<p>Typically, the number of channels increases as we get deeper into the net (smaller images but more channels). Additionally, sandwiching the whole thing with convolutions that map to a higher number of channels and back is helpful- a 3-channel image might come in, we map to 32 or 64 channels, feed through the U-Net, and map back to 3 channels. At the bottleneck, we can have a stack of convolutions or an MLP or whatever we want to process the compressed representation of the image.</p>
+
+<h3>Conditioning on Time and Convolution Details</h3>
+
+<p>The standard U-Net is missing one critical component for diffusion: we need to condition on the current time (where we are in the diffusion process). The way this is done in practice is pretty interesting and would not have occurred to me right away. There are two steps:</p>
+
+<p>Firstly, the time is represented as an integer between 0 and 1000. Somehow we need to turn this into a feature vector, and for this we can use a position embedding, just like the position embeddings in a language model. Most implementations seem to use a sinusoidal embedding (rather than a learned embedding), so that is what I used, but I would expect either to be fine. For a given pass, we first map our integer time into a feature vector with an embedding.</p>
+
+<p>Next, we need to actually inject it into our U-Net, and we can inject it all over the place so that all the different scaled versions of our data can benefit. Specifically, we add it into every convolutional block. The data flowing through the convolution will be size (C, W, H), while our time features are only size (F,), so we need to make these line up. Using a linear layer we can project F features into C features, and then just repeat the tensor along the other dimensions to get (C, W, H).</p>
+
+<p>Rather than just adding this to our current data (an offset), an implementation that I really liked also learned a scaling factor based on time, offset by 1.0 so that by default there is no scaling:</p>
+
+<div class='algo'>
+
+<p>Adding Time Features</p>
+
+<ul>
+<li><p>Given current data <strong>x</strong>, size (C, W, H)</p></li>
+<li><p>Given time features of size (F,), from an embedding layer</p></li>
+<li><p>Project the features to a scale and an offset (two linear layers of size (F,C)):</p>
+
+<ul>
+<li><p>scale = Linear1(x) + 1.0</p></li>
+<li><p>offset = Linear2(x)</p></li>
+</ul></li>
+<li><p>Repeat both of these along new dimensions to match (C, W, H)</p></li>
+<li><p><strong>x</strong> = x*scale + offset</p></li>
+</ul>
+
+</div>
+
+<p>Including this component, our full convolutional block has the following forward pass:</p>
+
+<pre><code>
+def forward(self, x, t_emb):
+
+    # first convolution
+
+    y = swish(self.norm1(x))
+
+    y = self.conv1(y)
+
+
+
+    # time features
+
+    t = swish(t_emb)
+
+    scale = self.time_scale(t)[:,:,None,None] + 1.0
+
+    shift = self.time_shift(t)[:,:,None,None]
+
+    y = y*scale + shift
+
+
+
+    # second convolution
+
+    y = swish(self.norm2(y))
+
+    y = self.dropout(y)
+
+    y = self.conv2(y)
+
+
+
+    # return with residual connection
+
+    return y + x
+
+</code></pre>
+
+<p>This shows some of the additional details of our model. I used swish() as the activation function, group norms, and dropout with probability 0.1.</p>
+
+<h3>Training</h3>
+
+<p>I initially tried a small model generating 64x64 images, the Adam optimizer (lr=0.0001), batch size of 32, and 100 epochs. Having recently worked a lot in language models, I used a cosine annealing schedule.</p>
+
+<p>I found EMA to be very useful, and small models tended to collapse so I increased the channel counts until the model was in the 10s of million of parameters. Convergence was slow, and I actually killed the run several times because I thought it wasn't working- it turns out that the early generations are just horrible :) See the results after 10 epochs below:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20240318152349184.png" alt="img" /></p>
+
+<p>So the biggest lesson was, be patient with diffusion models.</p>
+
+<p>These results were pretty good, but I wanted to see something better, so I switched over to my shiny new 4090 and increased resolution to 160x160, training for 400 generations with an even larger model.</p>
+
+<h3>Results</h3>
+
+<p>The big run yielded pretty good results in my opinion. Not perfect, but a few of them are passable as real flower photos I think:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20240322152924031.png" alt="image-20240322152924031" /></p>
+
+<h3>Lessons Learned</h3>
+
+<p>I wanted to also catalogue a few things that really tripped me up at first:</p>
+
+<ul>
+<li><p>Like I said above, bad early results do not mean the model is broken. It's just slow.</p></li>
+<li><p>Small models just made cloudy outputs and couldn't progress past that (here "small" is still pretty big- maybe 1M parameters.)</p></li>
+<li><p>Attention did not seem to help here, although this is not the most diverse dataset</p></li>
+<li><p>If you do add attention, it is really important to have a residual connection around it and/or have some sort of positional embedding. I didn't do this at first, and attention just made everything hazy because it didn't really know how the internal features corresponded to overall image layout (at least, that is what I believe happened).</p></li>
+<li><p>Loss is not the best indicator of quality: humans can easily catch visual errors that do not register as high loss. A mushed up flower image is actually pretty close to a real flower image in terms of most metrics.</p></li>
+<li><p>Given the above, let the model slowly converge. Even if the loss is just inching down, this might be making progress upon inspecting the outputs.</p></li>
+</ul>
+
+<p>The code for this post can be found <a href="https://github.com/ewmstaley/diffusion_experiments">here</a>. My next post will look at generating actions instead of images, a la Diffusion Policy.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/diffusion_3/diffusion3.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_3/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 3</p>
+<p class='postpreview_subtitle'>Playing CarRacing-v3 with Diffusion</p>
+<p class='postpreview_date'>November 1, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_2/diffusion2.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 2</p>
+<p class='postpreview_subtitle'>Generating Images</p>
+<p class='postpreview_date'>October 30, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_1/diffusion1.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 1</p>
+<p class='postpreview_subtitle'>How does Diffusion Work?</p>
+<p class='postpreview_date'>October 20, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../code.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:10%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>

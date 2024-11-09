@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Darwinian Objectives</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="PAGETITLE" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Recent thoughts on evolving artificial intelligence." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../code.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../posts.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Darwinian Objectives</h1>
+
+<h2>Evolving AI, Survival, and The Meaning of Life</h2>
+
+<p class='author'>September 24, 2024</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<h3>Evolving Intelligence</h3>
+
+<p>I thought it was worth documenting an epiphany I had recently about how intelligence evolved. The long-term goal of AI research is to create human-level (or greater) intelligence, and we know this is possible because it has already happened once before, via evolution. While the brain is too complex for us to currently understand in full, one possible approach to replicating its ability is to look to the underlying process which created it. Perhaps we could construct some simulation of life or nature and let it run for a very long time, and some simulated blob of cells would appear at the other end, resembling intelligent life.</p>
+
+<p>This is not an especially original idea (the entire subdomain of genetic algorithms is based on this principle), but it is a very interesting one to try thinking through. Hypothetically, if we were to construct some evolutionary process to evolve intelligence- what would it look like? If we follow the format of a typical GA, we need to define a fitness function. What exactly would we be trying to optimize for?</p>
+
+<p>If we follow the typical understanding of "survival of the fittest", we don't actually need to put in much effort here if we don't want to. We can assume that, on average, the simulated beings in our hypothetical "genetic algorithm of life" will be more prone to survival if they are somehow more capable than their peers. One axis of capability is intelligence, so if we simply design a preference for individuals that survive, we are indirectly reinforcing intelligence. We just need to simulate a few billion generations of life and death, and whatever we end up with is probably more intelligent that what we started with because, well, it made it that far.</p>
+
+<p>So far so good. We know that from generation to generation, we are just going to prefer "the members that survived." But what does that actually look like? Within a single generation, what do our simulated beings actually do?</p>
+
+<h3>Survival of the Fittest</h3>
+
+<p>At this level, within a single generation (or period of time or however we have set up our god simulation), things get a little weird. In a typical GA, each population is a set of solutions and we prefer the fittest ones- the ones that best solve the problem. In this case the fitness function is actually just survival, so we just pick the ones that... don't die?</p>
+
+<p>This seems a little reductive, because if things are working correctly then our population is itself made up of partially intelligent beings, and they are capable of pursuing goals. That is, the beings themselves are doing things with their life, and actively pursuing survival within their lifespan. We end up in a sort of meta-algorithm, preferring the members of the population that were able to best achieve their own survival, or live their best life, or self-actualize, or something.</p>
+
+<p>Note that this doesn't require especially high levels of intelligence to be a concern. Even the most primitive lifeforms, operating entirely on instinct, might pursue nutrients and avoid danger. This seems a critical aspect of life itself: life "wants" to survive. The members of the population are actively trying to do something within their lifespan, and more than raw potential this is what evolution seems to really be rewarding: the ability to execute the task of "stay alive". </p>
+
+<p>So somehow, we need to encode within our simulation the goal not only of the overall algorithm, but the goal of a single lifespan. What exactly should a semi-intelligent being be trying to do over their lifespan? What is the purpose of their life?</p>
+
+<h3>The Meaning of Life</h3>
+
+<p>The most obvious solution to this problem- that the individuals are trying to stay alive- seems wrong when you start to think about it. If individuals simply pursued their own survival, life wouldn't last very long. All the primitive algae in the primordial swamp would just float around, eat stuff, not die for a while, and then they would succumb to old age and, in fact, die. Life as we know it has ended. </p>
+
+<p>This is a conundrum. Death is inevitable, so individuals in nature are not purely trying to survive for their own sake, which is futile in the long run. Instead, they are trying to survive for the benefit of their species. They are trying to reproduce, create families, form societies, and ensure that their children have a better life in the primordial swamp than they did- which is absolutely bizarre when you think about it. Compared to the dog-eat-dog brutality of nature we are trying to mimic, we seem to have this encoded altruism in each individual. While they will not live past some point and therefore could not benefit in the long term, individuals try to make sure that they create offspring, that those offspring survive, and that those offspring prosper. Even more than survival of the self, this seems to be the motivator in nature- survival of the species.</p>
+
+<p>From an algorithmic point of view, this is extremely odd. If we imagine our two-tiered algorithm, at a high level (generation to generation) we prefer the most capable individuals (survival of the fittest). At a lower level (within a generation), the individuals are striving to keep themselves alive but also ensure survival of future generations of their species, to no benefit that will be realized within their own lifetime. It's almost as though the goal of the individuals in this algorithm is to make sure that the higher level algorithm has something to do. This genetic algorithm's members strive to ensure the perpetuation of the algorithm itself.</p>
+
+<h3>Existential Crisis</h3>
+
+<p>At this point I hit a mental brick wall for a long time, and possibly an existential one. The more I thought about this the weirder it seemed. Why would individuals in nature optimize anything at all, given that in the grand scheme of things their existence is almost instantaneous? What would an individual's objective function even look like? Unless we manually intervene and encode a desire to reproduce, what more general objective would actually result in this behavior? Furthermore, what does this mean for our overall objective- is our fitness function really just survival of the individual, or something more complex? Do we need a "species fitness" as well?</p>
+
+<p>Maybe we, as products of the algorithm of evolution, are not equipped to reason about it. Just as we do not fully understand the human brain, maybe we cannot understand life? Not to mention, we assume that human intelligence is the current best product of evolution. Is that true? Does natural evolution even have "an objective" in the first place? Why am I thinking so much about this?</p>
+
+<h3>Survivorship Bias</h3>
+
+<p>About two days ago I figured it out, totally at random. I was thinking about this all wrong.</p>
+
+<p>Suppose that this weird meta-algorithm entanglement wasn't happening, that individuals in nature were not trying to perpetuate their own species. What would happen? Nothing would happen. Life would just stop after a few generations, since the "next generation" would be of no concern. The individuals die off, the higher-level algorithm has nothing to do, and evolution grinds to a halt.</p>
+
+<p>And yet, here I am today writing a blog post, so we know this didn't happen. In fact, the only way that evolution could have kept churning for billions of years is if the long-term survival of the species was prioritized by individuals. Evolution exists, and therefore species-level survival must be prioritized. Since it is prioritized, evolution exists.</p>
+
+<p>To put it another way, there is nothing special or magical about this property that individuals perpetuate their species, no venerable altruism baked into DNA that looks beyond our own lifespan. In reality, there have probably been millions of species that did not have this instinct, and they are simply dead now. This is just a basic requirement for evolution to function, so species that do not have this particular drive are lost to time.</p>
+
+<p>To self-diagnose, I suffered from a quite literal case of <a href="https://en.wikipedia.org/wiki/Survivorship_bias">survivorship bias</a>. I was only considering the lifeforms we know about, the ones that actually stuck around long enough to be influenced by the process of evolution. Most mutations are harmful, and most potential species just never made it that far, so it is easy to forget about them. </p>
+
+<h3>If Intelligence Evolves in a Forest...</h3>
+
+<p>... and no one is there to recognize it, did it actually evolve? In a strange way, evolution presents us with a miniature <a href="https://en.wikipedia.org/wiki/Anthropic_principle">Anthropic principle</a>. Evolution on earth seems to have special properties simply because, well, here we are. Evolution could have happened many times, on earth or elsewhere, but it doesn't really count if it doesn't get far enough that its own products recognize what is going on.</p>
+
+<p>To return to the original question- how to design a genetic algorithm that creates intelligence- my answer for now is don't overthink it, just make sure you run it over and over and over. If the algorithm converges too fast, and evolution stops, then that is probably par for the course. But at some point, by shear luck, a run will go for a while. It will self-perpetuate. The simulated beings will develop some strange mutation that encourages the survival of the algorithm itself. And then... you just see where it goes!</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/diffusion_3/diffusion3.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_3/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 3</p>
+<p class='postpreview_subtitle'>Playing CarRacing-v3 with Diffusion</p>
+<p class='postpreview_date'>November 1, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_2/diffusion2.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 2</p>
+<p class='postpreview_subtitle'>Generating Images</p>
+<p class='postpreview_date'>October 30, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_1/diffusion1.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 1</p>
+<p class='postpreview_subtitle'>How does Diffusion Work?</p>
+<p class='postpreview_date'>October 20, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../code.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:10%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
