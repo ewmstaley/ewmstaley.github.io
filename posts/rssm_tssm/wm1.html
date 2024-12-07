@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>RSSM and TSSM</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="PAGETITLE" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Experiments in World Modeling" />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Modeling the World</h1>
+
+<h2>RSSM &amp; TSSM Notes and Experiments</h2>
+
+<p class='author'>December 1, 2024</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Implementation <a href="https://github.com/ewmstaley/rssm_tssm_pt">here</a>.</p>
+
+<h3>Why Model the World?</h3>
+
+<p>What is a world model? A world model is a neural network that captures the dynamics of an environment, which can then be queried to "simulate" the true environment without actually running it. There are some very clear practical advantages of having a world model, namely (1) it is differentiable and (2) it runs on the GPU, simulating batches of scenarios. This leads to tons of interesting things that you can do: you can train a policy by backpropagating through the world model, you can do search over possible future scenarios, or you can even just treat it like a really cheap version of a typical RL environment.</p>
+
+<p>I am going to explore a lot of these in future posts, but for now I wanted to capture the inner workings of a specific world model: Recurrent State Space Models (RSSM, see <a href="https://arxiv.org/abs/1801.10395">this paper</a> and <a href="https://planetrl.github.io/">this one</a>), which I found a bit confusing to implement initially. Additionally, I did not find many explanations online besides some code, and I think some diagrams and written notes could be helpful for others.</p>
+
+<p>In this post I am hoping to get through the following: (1) RSSM and how it works, (2) implementation and results on MuJoCo HalfCheetah, (3) some shortcomings of RSSM for imitation learning specifically, and (4) a look at the extension TSSM and other variations.</p>
+
+<h3>Diagram View: RSSM Architecture</h3>
+
+<p>Our goal in building a world model is essentially to build a sequence-modeling network that can take in observations and actions and predict what might come next. We can easily collect this data from an existing environment, and we want to distill this into a neural network. A world model can also include predicting rewards if they are available, but in this post I am assuming we do not have access to them.</p>
+
+<p>The sequence models I am most familiar with are language models, and I expected this to pretty much map exactly onto something like text generation. Given an existing sequence of observations and actions, predict a distribution over the next possible observations, sample from this, and tack that on to our current trajectory. We could then query the policy for the next action, and repeat.</p>
+
+<p>It turns out there is a bit more nuance here. While the above is somewhat correct, there are two big gotchas which add additional complexity:</p>
+
+<ol>
+<li><p>We need to distinguish between the observation of the environment, the true state of the environment, and the representation of the true state within the sequence model.</p></li>
+<li><p>We actually have multiple sources of information when predicting the future: we could query the model, but we could also observe the true environment if we have access to it.</p></li>
+</ol>
+
+<p>Let's expand on each of these briefly, starting with the first: As is typical in RL setups, we may have an observation of the environment that is not the same as the full environment state. Here we also have some latent representation of the current state inside our RSSM, and the RSSM itself can roll forward entirely in latent space (image if we didn't do this and we used something like visual observations- the errors would compound quickly). We can "observe" the RSSM's state by transforming the latent state into a predicted observation, but this is not necessarily representative of the full long-term state of the environment or within the RSSM. </p>
+
+<p>It is helpful here to name all of these things, and the RSSM authors really made things difficult by calling the part of the latent state <strong>s</strong>, which is already used in RL, so don't get confused by that:</p>
+
+<ul>
+<li><p><strong>o</strong> : the current observation from the environment</p></li>
+<li><p><strong>h</strong> : the current hidden state of the RSSM (as in any RNN). This is deterministic.</p></li>
+<li><p><strong>s</strong> : the current predicted latent state of the RSSM, which is calculated from a distribution conditioned on <strong>h</strong>. While h is deterministic, <strong>s</strong> introduces some stochasticity.</p></li>
+<li><p><strong>a</strong> : the current action</p></li>
+<li><p><strong>e</strong> : an embedding of the current observation (I will explain this below)</p></li>
+</ul>
+
+<p>To the second point above, we can predict our current latent state <strong>s</strong> from two sources: we can predict it entirely from the dynamics of the environment, based on the most recent action. We can also take into account an observation of the current environment. This is where it is really important to distinguish between observations and states: our new observation may inform the current full state of the environment (which we are trying to model), but not be complete on its own. We may first process or compress the current observation into a embedded observation <strong>e</strong>, which is the last entry above.</p>
+
+<p>Imagine we are driving a robot around that has a lidar and also maintains an RSSM that tries to capture the environment state. Beyond predicting things like robot position from the RSSM, we could also take in current lidar observations to assist the RSSM in maintaining a full representation of the larger map. Therefore it is perfectly allowed to use the observation at time step <strong>t</strong> to predict the state at time step <strong>t</strong>. This would be complete nonsense in a NLP problem: you can't use the fifth word in a sentence to predict the fifth word.</p>
+
+<p>Taking this all together, we have a high-level picture of what we want to build:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img1.png" alt="image-20241206125704603" style="zoom: 80%;" /></p>
+
+<p>Given a previous hidden state <strong>h</strong>, a previous latent state <strong>s</strong>, and an action <strong>a</strong>, we can predict a distribution over the next state, the <strong>s'</strong> prior. We can also compute the next hidden state, <strong>h'</strong>.</p>
+
+<p>If we also have access to an observation <strong>o</strong>, we can compute a more accurate distribution for the next state, the <strong>s'</strong> posterior.</p>
+
+<p>We can reconstruct observations from samples of the latent states by adding a decoding mechanism. Together with the encoder, we have a way to project in and out of a latent representation. Note this is not quite the same as an autoencoder (although it is really close): the encoding <strong>e</strong> is not necessarily the same as the latent state <strong>s</strong>.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img2.png" alt="image-20241206125741438" style="zoom:67%;" /></p>
+
+<p>The trickiest aspect here is the two possible outputs. Internally, we compute the prior from the new hidden state before we output it. The posterior is computed from the new hidden state <strong>and</strong> the encoded observation. All of this happens downstream of our recurrent portion, which only handles the deterministic hidden states h. This gives us our fully expanded model architecture:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img25.png" alt="image-20241206125801484" style="zoom: 67%;" /></p>
+
+<h3>Training an RSSM</h3>
+
+<p>To train this model we need example trajectories consisting of observations and actions. We will "roll" our model forward as in a typical RNN training loop, passing in the data from each timestep as well as the previous hidden vectors <strong>h</strong> and <strong>s</strong>. To encourage our model to reconstruct the correct observations, our posterior samples use a reconstruction objective on <strong>o'</strong>. In this way, the model to the right of the vertical line above almost acts like an autoencoder. An observation is first compressed into an encoding <strong>e</strong>, and is joined with a hidden state <strong>h'</strong>. These predict a distribution over latent states, and sampling from this objective and decoding should reconstruct the input <strong>o'</strong>.</p>
+
+<p>The key to RSSM is that we also want the prior to predict this data: without access to <strong>o'</strong>, we want to be able to predict it anyway. To encourage this behavior, we use a KL-Divergence loss between the two distributions. This encourages our prior to be as close as possible to the posterior, even though it has access to less information. Our loop looks something like the following:</p>
+
+<div class='algo'>
+
+<p>RSSM Training Loop</p>
+
+<p>Given: A sequence of (obs, action) pairs.</p>
+
+<p>First, initialize the RSSM with zero-ed out hidden states and the first state (see below). Store initial <strong>h</strong> and <strong>s</strong>.</p>
+
+<p>For (o, a, o') in the sequence, where o' is borrowed from the next entry:</p>
+
+<ul>
+<li><p>Compute e = encode(o')</p></li>
+<li><p>Pass through the RSSM(h, s, a, e) and get: h', prior, posterior</p></li>
+<li><p>sample from the posterior to get s_post</p></li>
+<li><p>Compute predicted<em>o</em>next = decode(s_post)</p></li>
+<li><p>Loss 1: Reconstruction(predicted<em>o</em>next, o')</p></li>
+<li><p>Loss 2: KLD(prior, post)</p></li>
+</ul>
+
+<p>Sum up all losses and do a backwards pass all the way through this rollout.</p>
+
+</div>
+
+<p>To initialize the RSSM, we just supply zero vectors everywhere as well as a starting observation, collecting the resulting <strong>h</strong> and <strong>s</strong> vectors:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img3.png" alt="image-20241206131358153" style="zoom:67%;" /></p>
+
+<h3>Encoder / Decoder Training</h3>
+
+<p>If you are using observations that are small (i.e. 1D vectors), you should be able to roll this out pretty far and train easily. In this case, the encoder and decoder are really just MLPs that map between the true observation space and the RSSM's latent representations.</p>
+
+<p>Things get trickier if we have pixel observations (or something similarly large). Note that in this case, every step of the inner training for-loop includes an image reconstruction loss. This means that if you are rolling out for N steps, and have a batch size of B, you are doing B*N image-based losses, which gets expensive very quickly. For example, for 32 steps and batch size of 32, this involves 1024 image reconstruction losses in a single backward pass!</p>
+
+<p>In attempting to resolve this expense I came up with three options to explore, although I am sure there are many others:</p>
+
+<ol>
+<li><p><strong>External Autoencoder:</strong> We could completely separate the high-dimensional representation by training an autoencoder, and then only show encoded observations to our RSSM. </p>
+
+<ol>
+<li><p>Pro: Completely solves the compute issue. We can train an encoder separately and run the RSSM only in latent space. Feels very elegant.</p></li>
+<li><p>Con: This detaches the prediction of full observations from the dynamics of the world model. Ideally, our model should predict observations based on the underlying recurrent states. However, if the autoencoder and RSSM are both really really good, and the RSSM predicts valid points in the encoder latent space, this might sorta just work.</p></li>
+</ol></li>
+<li><p><strong>Internal Autoencoder:</strong> We could also keep the encoder completely wrapped up inside the RSSM, which is expensive but more in line with what we are really trying to do: predict observations that result from the environment dynamics.</p>
+
+<ol>
+<li><p>Pro: Only one model and predicted observations are directly computed from latent state.</p></li>
+<li><p>Con: Besides expense, there is a really important subtlety here: An RSSM that can model the environment in the latent space does not necessarily mean it can reconstruct observations. The model in this case has two only-kind-of-related objectives: model the environment (entirely latent space), and reconstruct observations (mapping away from latent to real data). Good loss on the first objective does NOT guarantee good performance on the second. More on this later.</p></li>
+</ol></li>
+<li><p><strong>Internal Encoder, Updated Externally:</strong> Finally, we could still train an autoencoder externally, but include it inline with our RSSM. The RSSM still predicts full observations, but backpropagates through an encoder/decoder that is frozen from its perspective.</p>
+
+<ol>
+<li><p>Pro: I think mostly fixes 2.2 above. The RSSM is encouraged to output observations that actually make sense after being decoded.</p></li>
+<li><p>Con: Still expensive on the backwards pass, but perhaps not as expensive as 2.</p></li>
+</ol></li>
+</ol>
+
+<p>The subtlety of 2.2 became really evident when trying to train an RSSM on Atari Breakout (examples below). In Breakout, the dynamics of the game are hugely dependent on the ball and paddle, which only occupy a few pixels each. This leads to an imbalance in our two objectives: When modeling the environment dynamics, these few pixels are extremely important. However, when reconstructing observations, they are not captured well by a reconstruction loss. We can very easily get degenerate predicted observations that just show most of the breakout blocks, getting an excellent reconstruction loss, and may or may not reflect the actual latent dynamics that the RSSM learns. In short- the visual features needed to model the environment and the visual features needed to reconstruct the environment do not match.</p>
+
+<p>Because of this issue, I spent most of my time working with HalfCheetah-v4, which has large visuals tied to the dynamics and thus mostly avoids the problem. The visual features to understand the dynamics and to encode/decode the visuals are the same (the body of the cheetah).</p>
+
+<h3>RSSM Modeling HalfCheetah Trajectories</h3>
+
+<p>Trying all three approaches on HalfCheetah-v4, mimicking a SAC expert, it was very clear that approach 3 was the best. I kept a rolling buffer of about 50 demonstrations from the expert, each clipped to only 100 steps (because after 100 steps the agent leaves the "playing area" in MuJoCo and this is a jarring visual change). I trained on batches of 8 subtrajectories, clipped to segments of 20 steps. The model was trained for 20,000 batches.</p>
+
+<p>After training, we can test the model by collecting an expert trajectory and running the data through the RSSM. At some point, we can stop feeding the observations to the RSSM and rely only on the predictions from the prior distribution. Here we see the results of feeding the first 10 observations to the RSSM during rollout, and relying on predictions for the remaining 90:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img4.png" alt="visualization_rssm" /></p>
+
+<p>The results were surprising to me in a few ways: I expected degradation of the model over time, but that is not really what happened. Instead, it appears that all approaches probably captured the dynamics, and the main difference is in how well they could reconstruct observations. Remember, the dynamics are entirely latent so a poor reconstruction on step n does not necessarily compound when reconstructing n+1.</p>
+
+<p>The fidelity of the reconstructions was mostly constant. The fully external encoder captured the body of the cheetah but the legs very well, even from the beginning. The internal encoder did a better job but the resulting observations are a little blurry. This is due to the issues described above- just because it understands the dynamics doesn't mean the reconstructed observations are crisp. This is mostly resolved in the last approach, which has a dedicated external training loop to produce nice output images, and propagates through this internally. </p>
+
+<p>In the future I may have to see how long I can run this out in latent space before it degrades, because the last approach seems to full understand how the environment works even after 90 steps with no observations.</p>
+
+<p>These can also be visualized in a video, which is more fun:</p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/kEbfiHDbITA?si=TXEkUIu-rRNMXI_N" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+<h3>RSSM Modeling Atari Trajectories</h3>
+
+<p>I also attempted training on demonstrations from Atari (Breakout and PacMan), which proved very educational as I tried to understand why it failed so miserably. An autoencoder on its own can definitely compress and reconstruct frames from Atari games:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img5.png" alt="image-20241206140745390" style="zoom:67%;" /></p>
+
+<p>However, when adding in the RSSM in any of the above combinations, I could not overcome the fact that the important features in these two games are just really really small and not well-captured by reconstruction loss. In the best case I would get something like the following:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img6.png" alt="image-20241206140712362" /></p>
+
+<p>There are several ways that this could be fixed. In an environment with access to reward, the RSSM would also predict this reward and therefore could be more inclined to pay attention to things that influence reward, like the paddle, ball, or ghosts. </p>
+
+<p>Additionally, more complex losses could probably solve this problem. An adversarial loss would enforce the inclusion of the small details that would otherwise give away that these are reconstructions. We could also imagine something like a diffusion head that  generates plausible observations from the current latent state and some noise vector. For example, diffusion might refine the "ghostly tracings" above into actual ghosts over the course of generation. In both cases the idea is to encourage the outputs to be within the distribution of possible observations, which is not currently a constraint on the model.</p>
+
+<h3>TSSM</h3>
+
+<p>Finally, while exploring RSSM I came across many more recent works, and one that stood out was <a href="https://arxiv.org/abs/2202.09481">TSSM</a>: the transformer-equivalent of RSSM. RSSM cannot be immediately converted to a transformer because of our dual output: the prior and posterior distributions. To compute the prior, we need to pass in a sequence of latent states, which we could sample from the posterior. So somehow, we need to sample the posterior before we pass through the model (?).</p>
+
+<p>Obviously, this doesn't work. The TSSM authors solve this conundrum by separating the prior and posterior into two independent graphs. This is actually a simplification of RSSM: we can remove the link between the hidden state and the posterior:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img7.png" alt="image-20241206142659975" style="zoom:67%;" /></p>
+
+<p>This means that the posterior is now entirely dependent on the current observation, and not any hidden dynamics. I am not sure this is a fair assumption in all environments, but probably safe in many of them. Now we can do the following:</p>
+
+<ul>
+<li><p>Encode all observations in our sequence</p></li>
+<li><p>From each encoded observation, compute a posterior distribution and sample s</p></li>
+<li><p>Now we have a sequence of (s,a) pairs, where s is the latent representation of the state sampled from the posterior.</p></li>
+<li><p>Feed this whole sequence through the transformer in one pass to estimate the prior distributions</p></li>
+<li><p>Apply our two losses at each output: the prior should be aligned via KLD with the <strong>next</strong> posterior, and the decoded observations should match the <strong>next</strong> observations.</p></li>
+</ul>
+
+<p>In diagram form, we have something like this:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img8.png" alt="image-20241206143110815" style="zoom: 67%;" /></p>
+
+<p>The results are quite similar to RSSM, and we can again test multiple ways of training or including the conversion to and from pixel space:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="img9.png" alt="visualization_tssm" /></p>
+
+<h3>What's Next</h3>
+
+<p>I looked into these methods because they can be used to support training policies, which I will describe in future posts. There are also some really impressive works lately that take these ideas to an extreme, modeling complex environments (i.e. <a href="https://diamond-wm.github.io/">DIAMOND</a>). I think it is likely that these models become the norm when training policies if they can continue increasing in fidelity. There are simply too many benefits to ignore: a fully differentiable environment that is easily batched and parallelized, and can be rewound to prior states for searching. I am curious if these will eventually replace simulators all together, at least with a considerable computational burden. Don't sell NVDA anytime soon.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/rssm_tssm/wm1.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/rssm_tssm/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Modeling the World</p>
+<p class='postpreview_subtitle'>RSSM &amp; TSSM Notes and Experiments</p>
+<p class='postpreview_date'>December 1, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_3/diffusion3.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_3/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 3</p>
+<p class='postpreview_subtitle'>Playing CarRacing-v3 with Diffusion</p>
+<p class='postpreview_date'>November 1, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/diffusion_2/diffusion2.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/diffusion_2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Diffusion Policy Part 2</p>
+<p class='postpreview_subtitle'>Generating Images</p>
+<p class='postpreview_date'>October 30, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../code.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:10%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
