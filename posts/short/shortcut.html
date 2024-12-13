@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Shortcut Models Review</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="PAGETITLE" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Explanation of Shortcut Models." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Flowing with Fewer Steps</h1>
+
+<h2>Shortcut Models Notes and Review</h2>
+
+<p class='author'>December 12, 2024</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Note: Shortcut models have been added to my <a href="https://github.com/ewmstaley/diffusion_policies/tree/main">diffusion codebase.</a></p>
+
+<h3>Shortcut Policies</h3>
+
+<p>In previous posts I have looked at <a href="../flow/flow_notes.html">flow matching</a> and <a href="../diffusion_3/diffusion3.html">diffusion</a> as a basis for imitating expert policies, and they perform really well (much better than  behavior cloning). However, they do have a key limitation: inference speed. To deploy a policy that is based on either of these methods, we may need to perform 10s or 100s of inference passes to generate the next few actions, and this makes it hard to use a policy that requires a quick reaction time. For example, an autonomous vehicle would not perform very well if needed to "stop and think" every few seconds while going 65 mph on the highway. In fact, in my previous examples using CarRacing-v3, I had to post-process the results videos for this exact reason- the live version is very choppy and hard to watch.</p>
+
+<p>This is also a problem in image generation, where many of the ideas in these methods originated. If I want to deploy a service that lets users generate an image, but every query requires 50 passes through my giant model, my service is either going to painfully slow or my AWS bill is going to be very high.</p>
+
+<p>Fortunately, there are a variety of methods to mitigate this problem between training and deployment- we can distill the results of our flow matching model (interchangeable with diffusion for the rest of this post) into a new model that mimics this in one (or very few) steps. This is at first glance a little strange: the whole point of flow matching is to help the model learn how to generate over many steps, because a single step is probably not possible. We cannot learn a model that directly regresses on a point of random noise mapped to a point in our desired distribution. If we try this, the model will just learn some sort of average or degraded output.</p>
+
+<p>However, the reason this doesn't work is not because it is impossible, but because we just do not have a sensible mapping to exploit. Once we have a sensible mapping (provided by a trained flow matching model that can generate samples), we can distill this mapping into a new network that performs it in one pass. So a simple version of this is something like:</p>
+
+<div class='algo'>
+
+<p>Given a trained flow matching model:</p>
+
+<ul>
+<li><p>Sample random noise x. </p></li>
+<li><p>Over many inference passes, generate a corresponding datapoint y and compute the final delta from x.</p></li>
+<li><p>Save (x,dx) as a training pair</p></li>
+<li><p>Repeat until large dataset acquired, or do this in parallel with the next section.</p></li>
+</ul>
+
+<p>Then in a new model:</p>
+
+<ul>
+<li><p>Sample (x,dx) datapoints</p></li>
+<li><p>Train the new model to predict dx from x.</p></li>
+<li><p>Generate in one step with y = x + dx</p></li>
+</ul>
+
+</div>
+
+<p>This is process works, but there are two annoying things going on here from a practical perspective: (1) we have to train a second model, and (2), in order to harvest data to train this model we need to do many inference passes. Both of these are alleviated by a recent work called <a href="https://arxiv.org/abs/2410.12557">One Step Diffusion via Shortcut Models</a>, which I decided to implement and add to my current diffusion policies / flow matching policies implementation because of the clear practical advantages.</p>
+
+<h3>Using a Single Model</h3>
+
+<p>Let's start with the first problem: multiple models. To fix this, we can imagine creating a multitask network that holds solutions to both the multistep generation (original flow model) and the one-step generation (distilled flow model). To do this we can introduce a new input that just acts like a switch, telling the network what it should model: should it produce a vector field that will be used over several steps, or a vector field for one step? This gives us something like (not our final version):</p>
+
+<div class='algo'>
+
+<p>Model(x, t, d) estimating needed delta x, given:</p>
+
+<ul>
+<li><p>x, a current noisy datapoint</p></li>
+<li><p>t, the current timestep in our generation process</p></li>
+<li><p>d, a switch that indicates if we plan to take many small steps or one large one</p></li>
+</ul>
+
+</div>
+
+<p>We could then train this model using a sort of "self-distillation": as we train the typical flow matching objective when d=0, we also train on the distillation objective and pass d=1:</p>
+
+<div class='algo'>
+
+<p><strong>Self-Distilled Flow Model Training:</strong></p>
+
+<ol>
+<li><p>Given some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002C;</mo><mi>y</mi><mo stretchy="false">&#x00029;</mo></mrow></math> pair, compute loss on flow matching objective:</p>
+
+<ol>
+<li><p>Sample some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> between 0 and 1, possibly from a discrete set of options.</p></li>
+<li><p>Construct <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><mi>y</mi><mo>&#x0002A;</mo><mi>t</mi><mo>&#x0002B;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002A;</mo><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+<li><p>Construct <strong>loss1</strong> such that <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>N</mi><mi>e</mi><mi>t</mi><mi>w</mi><mi>o</mi><mi>r</mi><mi>k</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo>&#x0002C;</mo><mi>d</mi><mo>&#x0003D;</mo><mn>0</mn><mo stretchy="false">&#x00029;</mo></mrow></math> is encouraged to predict <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><mi>y</mi><mo>&#x02212;</mo><msub><mi>x</mi><mn>0</mn></msub><mo stretchy="false">&#x00029;</mo></mrow></math>​</p></li>
+</ol></li>
+<li><p>Given another <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002C;</mo><mi>y</mi><mo stretchy="false">&#x00029;</mo></mrow></math> pair, compute loss on the distillation objective:</p>
+
+<ol>
+<li><p>Outside the computation graph, use the model to generate an expected <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>y</mi><mrow><mi>g</mi><mi>e</mi><mi>n</mi></mrow></msub></mrow></math>​ over many inference passes</p></li>
+<li><p>Construct <strong>loss2</strong> such that <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>N</mi><mi>e</mi><mi>t</mi><mi>w</mi><mi>o</mi><mi>r</mi><mi>k</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002C;</mo><mi>t</mi><mo>&#x0003D;</mo><mn>0</mn><mo>&#x0002C;</mo><mi>d</mi><mo>&#x0003D;</mo><mn>1</mn><mo stretchy="false">&#x00029;</mo></mrow></math> is encouraged to predict <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>y</mi><mrow><mi>g</mi><mi>e</mi><mi>n</mi></mrow></msub><mo>&#x02212;</mo><msub><mi>x</mi><mn>0</mn></msub><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+</ol></li>
+<li><p>Update on the combined loss: loss1 + loss2</p></li>
+</ol>
+
+</div>
+
+<h3>Using Fewer Inference Steps</h3>
+
+<p>The second problem of long inference remains, as we can see in 2.1 above. Shortcut Models fixes this by expanding on the above idea. Rather than a binary switch, what if we could construct multiple options that interpolate between our two tasks: many-step generation on one end, one-step generation on the other, and several-step options in the middle. Specifically, shortcut models as described in the paper use 8 options that can be passed in for <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi></mrow></math>: [0,1,2,3,4,5,6,7], indicating that the step size during generation will be <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mn>2</mn><mi>d</mi></msup></mrow></math> steps out of a total of 128: [1, 2, 4, 8, 16, 32, 64, 128]. <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi><mo>&#x0003D;</mo><mn>0</mn></mrow></math> indicates our typical flow matching case with small steps, while <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi><mo>&#x0003D;</mo><mn>7</mn></mrow></math> indicates a single large step.</p>
+
+<p>This is helpful because rather than distilling all the way from many-step distillation to single-step, we can set up a cascading distillation system in which each designated <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi></mrow></math> distills to one step-size higher, and this means we only ever need to take two steps to create a target for distillation. For example, the <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi><mo>&#x0003D;</mo><mn>1</mn></mrow></math> case will try to distill two steps of size 1 into a single step of size 2. When d=2, we will try to distill two steps of size 2 into a single step of size 4, and so on:</p>
+
+<div class='algo'>
+
+<p><strong>Shortcut Flow Model Training:</strong></p>
+
+<ol>
+<li><p>Given some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002C;</mo><mi>y</mi><mo stretchy="false">&#x00029;</mo></mrow></math> pair, compute loss on flow matching objective:</p>
+
+<ol>
+<li><p>Sample some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> between 0 and 1, from increments of 1/128.</p></li>
+<li><p>Construct <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><mi>y</mi><mo>&#x0002A;</mo><mi>t</mi><mo>&#x0002B;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002A;</mo><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+<li><p>Construct <strong>loss1</strong> such that <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>N</mi><mi>e</mi><mi>t</mi><mi>w</mi><mi>o</mi><mi>r</mi><mi>k</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo>&#x0002C;</mo><mi>d</mi><mo>&#x0003D;</mo><mn>0</mn><mo stretchy="false">&#x00029;</mo></mrow></math> is encouraged to predict <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><mi>y</mi><mo>&#x02212;</mo><msub><mi>x</mi><mn>0</mn></msub><mo stretchy="false">&#x00029;</mo></mrow></math>​</p></li>
+</ol></li>
+<li><p>Given another <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002C;</mo><mi>y</mi><mo stretchy="false">&#x00029;</mo></mrow></math>​​ pair, compute loss on the distillation objective:</p>
+
+<ol>
+<li><p>Sample some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> between 0 and 1, from increments of 1/128.</p></li>
+<li><p>Construct <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><mi>y</mi><mo>&#x0002A;</mo><mi>t</mi><mo>&#x0002B;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002A;</mo><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+<li><p>Select some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mn>1</mn></msub></mrow></math> at random from [0,1,2,3,4,5,6]</p></li>
+<li><p>Set <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mn>2</mn></msub></mrow></math> = <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mn>1</mn></msub><mo>&#x0002B;</mo><mn>1</mn></mrow></math>​</p></li>
+<li><p>Outside the computation graph, take two generation steps forward with <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mn>1</mn></msub></mrow></math>: </p>
+
+<ol>
+<li><p>Let <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>s</mi></mrow></math> be the corresponding step size for <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mn>1</mn></msub></mrow></math> in our schedule (i.e. 1, 2, 4, 8, ...)</p></li>
+<li><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mrow><mi>t</mi><mo>&#x0002B;</mo><mi>d</mi></mrow></msub><mo>&#x0003D;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002B;</mo><mo stretchy="false">[</mo><mi>E</mi><mi>M</mi><mi>A</mi><mo stretchy="false">]</mo><mi>M</mi><mi>o</mi><mi>d</mi><mi>e</mi><mi>l</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo>&#x0002C;</mo><msub><mi>d</mi><mn>1</mn></msub><mo stretchy="false">&#x00029;</mo><mo>&#x0002A;</mo><mi>s</mi></mrow></math></li>
+<li><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mrow><mi>t</mi><mo>&#x0002B;</mo><mn>2</mn><mi>d</mi></mrow></msub><mo>&#x0003D;</mo><msub><mi>x</mi><mrow><mi>t</mi><mo>&#x0002B;</mo><mi>d</mi></mrow></msub><mo>&#x0002B;</mo><mo stretchy="false">[</mo><mi>E</mi><mi>M</mi><mi>A</mi><mo stretchy="false">]</mo><mi>M</mi><mi>o</mi><mi>d</mi><mi>e</mi><mi>l</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mrow><mi>t</mi><mo>&#x0002B;</mo><mi>d</mi></mrow></msub><mo>&#x0002C;</mo><mi>t</mi><mo>&#x0002B;</mo><mi>s</mi><mo>&#x0002C;</mo><msub><mi>d</mi><mn>1</mn></msub><mo stretchy="false">&#x00029;</mo><mo>&#x0002A;</mo><mi>s</mi></mrow></math></li>
+<li><p>Compute target velocity  = <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mrow><mi>t</mi><mo>&#x0002B;</mo><mn>2</mn><mi>d</mi></mrow></msub><mo>&#x02212;</mo><msub><mi>x</mi><mi>t</mi></msub><mo stretchy="false">&#x00029;</mo><mo>&#x0002F;</mo><mn>2</mn></mrow></math></p></li>
+</ol></li>
+<li><p>Construct <strong>loss2</strong> such that <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>N</mi><mi>e</mi><mi>t</mi><mi>w</mi><mi>o</mi><mi>r</mi><mi>k</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo>&#x0002C;</mo><mi>d</mi><mo>&#x0003D;</mo><msub><mi>d</mi><mn>2</mn></msub><mo stretchy="false">&#x00029;</mo></mrow></math> is encouraged to predict the target velocity</p></li>
+</ol></li>
+<li><p>Update on the combined loss: loss1 + loss2</p></li>
+</ol>
+
+</div>
+
+<p>Above, 2.5 is called the "self-consistency loss": generating with two small steps should be equivalent to one step that is twice as large. This self-consistency is performing distillation: Our setting for <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mi>i</mi></msub></mrow></math> is being distilled from two steps at <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>d</mi><mrow><mi>i</mi><mo>&#x02212;</mo><mn>1</mn></mrow></msub></mrow></math>​. The paper recommends a data imbalance: perform (1) with a batch size that is 3-5 times larger than the batch size in (2).</p>
+
+<p>The paper also recommends distilling from an EMA model rather than the original: create a second network that tracks an exponential moving average of the weights of the first, and use this for the distillation objective. This is common practice in diffusion and flow matching, so even though it seems like they are introducing a second model, it is sort of assumed that it will exist.</p>
+
+<h3>Revisiting our 2D Example</h3>
+
+<p>Plotting the training dynamics of shortcut models is really interesting, and it is a non-trivial endeavor to figure out how to visualize this. Even for 2D points, we have 8 separate vector fields that are modelled by the network (depending on choice of <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi></mrow></math>). To take a look at this, I first want to introduce a new way of looking at our flow matching example from the previous post. The goal is to construct a flow matching model that takes points from a standard normal and flows them to a distribution defined by four wider Gaussians arranged in a cross pattern. Below, we see the results of generating points with our model, over the course of the first 5000 training steps:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="one_distribution.gif" alt="one_distribution" /></p>
+
+<p>This looks very similar to animations of using the flow model itself, but we are looking at something completely different: this shows that as the model trains, it is able to generate points closer and closer to the target distribution. Soon, the target distribution is reached and we see some jitters as the model tries to further refine the boundaries of the distribution. These "jitters" are one reason that diffusion models and flow matching almost always use EMA, a moving average of model weights during training. We can visualize generations under these instead, and they are very smooth:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="one_distribution_ema.gif" alt="one_distribution_ema" /></p>
+
+<h3>Our 2D Example with Shortcut Models</h3>
+
+<p>Now we will visualize the same thing, but using a shortcut model. Instead of a single distribution of points, we have 8: one for each of our step sizes defined by <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi></mrow></math>. The standard flow matching objective is used for <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi><mo>&#x0003D;</mo><mn>0</mn></mrow></math>, show here in purple (128 steps to generate). Generation under the one-step (<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi><mo>&#x0003D;</mo><mn>7</mn></mrow></math>) setting is shown in red, with others forming a spectrum in-between:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="all_20_smooth_correct_target.gif" alt="all_20_smooth" /></p>
+
+<p>We can directly see the result of the cascading distillation in rainbow streaks that form: the purple points are fastest to train, and the other colors (step sizes) attempt to follow them, each distilling slightly slower than the last. This leads to chains of points through our various settings for <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>d</mi></mrow></math>, reaching out towards the intended distribution, and eventually becoming a bit muddier as the model settles. I am very proud of this gif. A version with maby more points is used as the cover image, above.</p>
+
+<p>Presumably, as training time tends to infinity, all the points end up on top of each other. However, I never found this to happen in practice, with some "rainbow chains" even in models that trained for a long time.</p>
+
+<h3>Shortcut Results on CarRacing-v3</h3>
+
+<p>As with diffusion and flow matching, my next step is to use this as the basis of a policy. This is ultimately the advantage of doing some sort of distillation: we can do inference fast. For robotics applications, this may unlock dexterity or maneuvers that would not otherwise be possible at a slow speed.</p>
+
+<p>The shortcut model performed very well on this task, even when using a single step. We see the following performance over 100 episodes:</p>
+
+<ul>
+<li><p><strong>Shortcut, 128 Step Generation:</strong></p>
+
+<ul>
+<li><p>Performance: 861.3 +/- 156.1 on average, 915.5 +/- 9.6 for middle 50% of episodes.</p></li>
+<li><p>FPS: 3.5, drops to 0.9 on generation steps</p></li>
+</ul></li>
+<li><p><strong>Shortcut, 16 Step Generation:</strong></p>
+
+<ul>
+<li><p>Performance: 890.2 +/- 112.2 on average, 916.9 +/- 7.1 for middle 50% of episodes.</p></li>
+<li><p>FPS: 27.2, drops to 6.8 on generation steps</p></li>
+</ul></li>
+<li><p><strong>Shortcut, 4 Step Generation:</strong></p>
+
+<ul>
+<li><p>Performance: 886.1 +/- 105.2 on average, 918.4 +/- 6.0 for middle 50% of episodes.</p></li>
+<li><p>FPS: 86.2, drops to 21.6 on generation steps</p></li>
+</ul></li>
+<li><p><strong>Shortcut, 1 Step Generation:</strong></p>
+
+<ul>
+<li><p>Performance: 893.7 +/- 108.8 on average, 917.3 +/- 4.0 for middle 50% of episodes.</p></li>
+<li><p><strong><u>FPS:</u></strong> <strong><u>237.5, drops to 59.5 on generation steps</u></strong></p></li>
+</ul></li>
+<li><p><strong>References:</strong></p>
+
+<ul>
+<li><p>Expert: 923.8 +/- 8.5</p></li>
+<li><p>DDIM 10 Step: 910.0 +/- 50.8, Middle 50%: 921.9 +/- 3.1, FPS 51.0 dropping to 12.8</p></li>
+<li><p>Flow 10 Step: 890.6 +/- 119.3, Middle 50%: 921.2 +/- 4.6, FPS 53.4 dropping to 13.4</p></li>
+</ul></li>
+</ul>
+
+<p>While the performance is great (pretty much on par with other methods at all step sizes), the key takeaway is in bold underline: At the bottleneck the shortcut policy can run at 60 FPS, and if we average this out we get ~240 FPS. This is also generating 4 actions at a time, which is very conservative. If we generated more I think this could easily surpass 100 FPS, which could enable very precise movements in real time.</p>
+
+<p>As always, some result animations. Here we see DDIM, Flow-Matching, and Shortcut all completing the same track side-by-side:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="three_animation.gif" alt="three_animation" /></p>
+
+<p>The shortcut model seems like it might be a little choppy in its movement but I am certainly nit-picking. While the first two are post-processed to obtain faster and smoother video, the shortcut model is actually post-processed because it is too fast!</p>
+
+<p>In the future I'd like to apply shortcut models to a more complex problem to see if it remains competitive. I am vert impressed by this method and it will definitely be a technique I use in the future.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/short/shortcut.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/short/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Flowing with Fewer Steps</p>
+<p class='postpreview_subtitle'>Shortcut Models Notes and Review</p>
+<p class='postpreview_date'>December 12, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/flow/flow_notes.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/flow/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Going with the Flow</p>
+<p class='postpreview_subtitle'>Notes on Flow Matching (Policies)</p>
+<p class='postpreview_date'>December 9, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/rssm_tssm/wm1.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/rssm_tssm/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Modeling the World</p>
+<p class='postpreview_subtitle'>RSSM &amp; TSSM Notes and Experiments</p>
+<p class='postpreview_date'>December 1, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:10%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>

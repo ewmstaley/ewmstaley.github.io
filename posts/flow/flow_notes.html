@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Flow Matching Policies</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="PAGETITLE" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Notes on Flow Matching." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Going with the Flow</h1>
+
+<h2>Notes on Flow Matching (Policies)</h2>
+
+<p class='author'>December 9, 2024</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Note: Flow matching has been added to my <a href="https://github.com/ewmstaley/diffusion_policies/tree/main">diffusion codebase.</a></p>
+
+<h3>Flow Matching</h3>
+
+<p>Flow matching is a technique to train neural networks that can iteratively refine an input towards some target, much like diffusion models. I recently came across them in a very interesting paper called <a href="https://arxiv.org/abs/2410.12557">One Step Diffusion via Shortcut Models</a>, and implemented flow matching policies on my way to implementing the ideas described in the paper. The first time I encountered flow matching I found the available explanations somewhat convoluted, so I wanted to (1) try explaining my understanding of flow matching on its own, (2) take a look at flow matching policies, and finally (3) look at some results from applying them. In a follow-up post I will discuss shortcut models. </p>
+
+<p>My best intuition for flow matching is that instead of training a network to model some function <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>f</mi><mo stretchy="false">&#x00028;</mo><mi>x</mi><mo stretchy="false">&#x00029;</mo></mrow></math>, we instead want to model its derivative <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>f</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00028;</mo><mi>x</mi><mo stretchy="false">&#x00029;</mo></mrow></math>. When we feed some input <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math> into our network, it therefore does not tell us the intended answer <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math>, but instead tells us how <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math> could be changed to approach <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math>. If we iterated through this network many times, we could manually walk our data point <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math> towards <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math> until we think we have reached it. You could also call this process "integration" or "Euler's Method".</p>
+
+<div class='algo'>
+
+<p><strong>Using a Flow Matching Model</strong></p>
+
+<ol>
+<li><p>Given an initial datapoint <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mn>0</mn></msub></mrow></math> and a flow matching model <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>f</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00028;</mo><mi>x</mi><mo stretchy="false">&#x00029;</mo></mrow></math>:</p></li>
+<li><p>Repeat:</p>
+
+<ol>
+<li><p>use the model to output <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>v</mi><mo>&#x0003D;</mo><msup><mi>f</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00028;</mo><mi>x</mi><mo stretchy="false">&#x00029;</mo></mrow></math> locally at <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mi>i</mi></msub></mrow></math></p></li>
+<li><p>update our datapoint: <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mrow><mi>i</mi><mo>&#x0002B;</mo><mn>1</mn></mrow></msub><mo>&#x0003D;</mo><msub><mi>x</mi><mi>i</mi></msub><mo>&#x0002B;</mo><mo stretchy="false">&#x00028;</mo><mi>v</mi><mo>&#x0002A;</mo><mi>s</mi><mi>t</mi><mi>e</mi><msub><mi>p</mi><mi>s</mi></msub><mi>i</mi><mi>z</mi><mi>e</mi><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+</ol></li>
+</ol>
+
+</div>
+
+<p>As far as I can tell, this really only makes sense if <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math> and <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math> are the same shape and we can imagine mapping from one to the other.   Usually <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mn>0</mn></msub></mrow></math> is a sample from a random normal with the same shape as <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math>. </p>
+
+<p>The main question is how to determine our training data and our step size above. While there are lots of options, the most straightforward is to have the model output the difference between <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math> and the corresponding <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mn>0</mn></msub></mrow></math>. This has the nice property that the output of the model is proportional to magnitudes within the data, and thus our step size can be considered a fraction of this difference. For example, if our step_size is some small quantity like 0.01, that would mean "move 1% of the original distance to y". In this case, we would therefore iterate for 100 steps.</p>
+
+<p>To train this model, we need to make two changes from a typical neural network regression task: Firstly, our training target is not <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math> itself, but <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><mi>y</mi><mo>&#x02212;</mo><mi>x</mi><mo stretchy="false">&#x00029;</mo></mrow></math>: given some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math>, can we predict the vector pointing from <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math> to <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math>? Secondly, since we will be using the model at many intermediate points between some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mn>0</mn></msub></mrow></math> and <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math>, we need it to be familiar with all these points as well. So, more accurately: Given some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math> where <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> is between 0 and 1, can we predict <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><mi>y</mi><mo>&#x02212;</mo><msub><mi>x</mi><mn>0</mn></msub><mo stretchy="false">&#x00029;</mo></mrow></math>? In our training loop, we can construct these intermediate points by interpolation, giving us:</p>
+
+<div class='algo'>
+
+<p><strong>Flow Matching Training</strong></p>
+
+<ol>
+<li><p>Given some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002C;</mo><mi>y</mi><mo stretchy="false">&#x00029;</mo></mrow></math> pair:</p></li>
+<li><p>Sample some <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> between 0 and 1, possibly from a discrete set of options.</p></li>
+<li><p>Construct <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><mi>y</mi><mo>&#x0002A;</mo><mi>t</mi><mo>&#x0002B;</mo><msub><mi>x</mi><mn>0</mn></msub><mo>&#x0002A;</mo><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+<li><p>Update the network such that <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>N</mi><mi>e</mi><mi>t</mi><mi>w</mi><mi>o</mi><mi>r</mi><mi>k</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0002C;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math> predicts <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><mi>y</mi><mo>&#x02212;</mo><msub><mi>x</mi><mn>0</mn></msub><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+</ol>
+
+</div>
+
+<h3>Flow Matching as Vector Fields</h3>
+
+<p>Many explanations of flow matching describe it as "modeling a vector field": for a fixed time <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math>, we could pass in any input and would receive as output a corresponding vector telling us in what direction to adjust our input, with a magnitude given by our step size. If we visualized the outputs for the space of possible inputs (and a fixed time <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math>), we would see a vector field.</p>
+
+<p>Note that this is conditional on <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math>, so the vector field changes at each time step. During inference, by updating our inputs according to the corresponding vector, we are "flowing" a point through this changing vector field. If successful, our network has learned to "match the flow" of this process which maps points in <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>P</mi><mo stretchy="false">&#x00028;</mo><mi>X</mi><mo stretchy="false">&#x00029;</mo></mrow></math> to points in <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>P</mi><mo stretchy="false">&#x00028;</mo><mi>Y</mi><mo stretchy="false">&#x00029;</mo></mrow></math>.</p>
+
+<p>This is best visualized with a problem in 2D space. Suppose we want to generate points from a distribution given by four gaussians, one in each quadrant, at (8,8), (-8,8), (8,-8), and (-8,-8). This will be our target distribution <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>P</mi><mo stretchy="false">&#x00028;</mo><mi>Y</mi><mo stretchy="false">&#x00029;</mo></mrow></math>. We will instead sample from the standard normal around (0,0), our starting distribution <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>P</mi><mo stretchy="false">&#x00028;</mo><mi>X</mi><mo stretchy="false">&#x00029;</mo></mrow></math>. Concentric circles show mean (center dot), one standard deviation, and two standard deviations:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20241209205957913.png" alt="image-20241209205957913" /></p>
+
+<p>We can train a neural network to output a vector field that moves the points in <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>P</mi><mo stretchy="false">&#x00028;</mo><mi>X</mi><mo stretchy="false">&#x00029;</mo></mrow></math> to <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>P</mi><mo stretchy="false">&#x00028;</mo><mi>Y</mi><mo stretchy="false">&#x00029;</mo></mrow></math> over many timesteps, as described above. The input to our network is therefore a 2D point and a timestep <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math>, and the output is a vector. We can visualize the vector field at a given <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> by sweeping over a grid of points and plotting the resulting vectors. If we repeat this for many <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> from 0 to 1, we can see how the vector field changes over time.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="plot_animation_vf.gif" alt="plot_animation_vf" /></p>
+
+<p>We can see that initially the vector field far the origin is fairly wonky, since no relevant points will be out there yet and it is quite literally "out of distribution". We can also see that as <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> approaches 1.0, the vectors around the origin become very small in magnitude. This is for a similar reason: as our points approach the final distribution, we should no longer have points near the center.</p>
+
+<p>To actually use our network, we initialize points from <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>P</mi><mo stretchy="false">&#x00028;</mo><mi>X</mi><mo stretchy="false">&#x00029;</mo></mrow></math> and set <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi><mo>&#x0003D;</mo><mn>0</mn></mrow></math>. We can query the network for the local vectors at each point, and use this to update the points. We then increase <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> slightly, and repeat. This can be visualized as an animation, here showing 5k points as well as the underlying vector field:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="plot_animation.gif" alt="plot_animation" /></p>
+
+<h3>Breaking Changes</h3>
+
+<p>To help understand why we are going to all this trouble to model <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mi>f</mi><mi>&#x02032;</mi></msup><mo stretchy="false">&#x00028;</mo><mi>x</mi><mo stretchy="false">&#x00029;</mo></mrow></math>, and condition our model on <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math>, we can look at what happens if we don't do this.</p>
+
+<p>Firstly, if we try to create a network that takes in a point in <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math> and outputs a point in <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math> (directly regressing on random (x,y) pairs), we don't get very far. Since there is no clear mapping between the two distributions, our network just learns the average:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20241209212725375.png" alt="image-20241209212725375" /></p>
+
+<p>The blue dot is actually 5k points stacked on top of each other.</p>
+
+<p>Another question to consider is why the inclusion of <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math>? If we look at our animation in the previous section, the vector field doesn't change very much, and we could certainly imagine a static vector field that flows the points properly. This is actually what you get if you don't train for very long, and the model doesn't yet fit to which areas of the space are occupied. I think this is also the reason why we include t: it allows the model to focus on relevant areas of the data space during our generation, and ignore areas where most points will not reside. This is not very critical for our example problem, but I can imagine this being important for very complex generation tasks.</p>
+
+<h3>Flow Matching vs Diffusion</h3>
+
+<p>The process of flow matching is incredibly similar to diffusion, and depending on your specific setup they may be indistinguishable. A diffusion model in image generation is often described as predicting the noise that might be present in an  image, so that the noise can be subtracted away. From the DDPM paper we see the following:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20241209213644263.png" alt="image-20241209213644263" /></p>
+
+<p>We generate random noise at step 4, and then try to predict the noise at step 5. In step 5, we are minimizing the squared error between the actual noise (epsilon) and our model's output (epsilon sub theta).</p>
+
+<p>Another way to formulate this would be to take a clean image, add noise to get a noisy image, and then subtract the two. You would be left with the noise itself! Therefore, predicting noise in diffusion is the same idea as predicting the difference between samples in flow matching. The difference is really just in how to formulate the problem: in diffusion we predict noise and subtract it away, in flow matching we predict a change and add it on.</p>
+
+<p>The more substantial difference between flow matching and diffusion is in the trajectories that datapoints take when moving from P(X) to P(Y). Diffusion models use a schedule that does not necessarily move <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math> straight towards <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math> or at a uniform rate. DDPM uses a schedule that updates data in a sigmoid(ish) fashion, initially taking small steps, then large ones, then slowly converging to the desired point:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20241209215430679.png" alt="image-20241209215430679" /></p>
+
+<p>The blue line is generated by running the DDPM diffusion process on a value at 1.0 towards a value of 0.0, and then flipping this around to approximate "generation". </p>
+
+<p>The shape of this line is reflected when we visualize the "vector field" of a diffusion model on our same problem. Rather than flowing linearly, the points accelerate towards the final distribution:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="plot_animation_diffusion.gif" alt="plot_animation_diffusion" /></p>
+
+<h3>Uniting Flow Matching and Diffusion Codebases</h3>
+
+<p>Fortunately, since the objectives and input/output are quite similar, we can reuse a diffusion implementation to achieve flow matching with minimal changes. In my diffusion policies repository, I recently abstracted away the algorithm to try uniting these frameworks. It is helpful to revisit each in pseudocode:</p>
+
+<div class='algo'>
+
+<p><strong>DDPM : Clean Sample to Noisy Point</strong></p>
+
+<p>Given datapoint <strong>y</strong>, timestep <strong>t</strong>, and random noise sample <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>&#x003F5;</mi></mrow></math>:</p>
+
+<ul>
+<li><p>Retrieve <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mover><mrow><mi>a</mi></mrow><mo stretchy="true">&#x000AF;</mo></mover></mrow></math> from the diffusion schedule</p></li>
+<li><p><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><msqrt><mrow><mover><mrow><mi>a</mi></mrow><mo stretchy="true">&#x000AF;</mo></mover></mrow></msqrt><mo>&#x0002A;</mo><mi>y</mi><mo>&#x0002B;</mo><msqrt><mrow><mn>1</mn><mo>&#x02212;</mo><mover><mrow><mi>a</mi></mrow><mo stretchy="true">&#x000AF;</mo></mover></mrow></msqrt><mo>&#x0002A;</mo><mi>&#x003F5;</mi></mrow></math>​</p></li>
+<li><p>Update the model to minimize the MSE between <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>&#x003F5;</mi></mrow></math> and <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>M</mi><mi>o</mi><mi>d</mi><mi>e</mi><mi>l</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+</ul>
+
+<p><strong>Flow Matching: Clean Sample to Noisy Point</strong></p>
+
+<p>Given datapoint <strong>y</strong>, timestep <strong>t</strong>, and random noise sample <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>&#x003F5;</mi></mrow></math>:</p>
+
+<ul>
+<li><p><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>&#x0003D;</mo><mi>t</mi><mo>&#x0002A;</mo><mi>y</mi><mo>&#x0002B;</mo><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0002A;</mo><mi>&#x003F5;</mi></mrow></math>​</p></li>
+<li><p>Compute target: <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi><mo>&#x02212;</mo><mi>&#x003F5;</mi></mrow></math></p></li>
+<li><p>Update the model to minimize the MSE between <strong>target</strong> and <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>M</mi><mi>o</mi><mi>d</mi><mi>e</mi><mi>l</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>t</mi></msub><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+</ul>
+
+</div>
+
+<p>We have something similar in generation: Our model will predict some noise, and we can defer to each algorithm how that prediction will be used to update the datapoint. One critical gotcha is that during generation, diffusion considers the "diffusion process" to be going in reverse, starting at T=100% (noise) and approaching T=0% (clean), whereas flow matching may treat T in the opposite fashion, starting at 0. It is also a headache to keep track of T in whole steps (diffusion) versus fractional steps out of 1.0 (flow matching). All of these boil down to personal implementation preferences but just be aware that it is an easy area to introduce a bug.</p>
+
+<p>In code we can keep all of this separated in algorithm classes that manage these details; I will show a snippet here of the recently refactored codebase:</p>
+
+<pre><code>
+class DDPMAlgo():
+
+
+
+    def __init__(self, T, **kwargs):
+
+        self.T = T
+
+        self.betas = np.linspace(0.0001, 0.02, T)
+
+        self.alphas = 1.0 - self.betas
+
+        self.alpha_hats = np.cumprod(self.alphas)
+
+        self.ts = list(range(self.T))
+
+        self.sampling_d = None
+
+        self.reverse_gen = True # we run our T's in reverse order to generate
+
+
+
+    def forward_diffusion(self, data, noise, t):
+
+        '''
+
+        Given the unnoised data, a noise tensor of same size, and an integer index t
+
+        returns: (the noised data point, the MSE training target)
+
+        '''
+
+        ahat = self.alpha_hats[t.detach().cpu().numpy()]
+
+        ahat = torch.as_tensor(ahat).to(torch.float32).to(data.device)
+
+        B, d1, d2 = data.shape
+
+        ahat = ahat.unsqueeze(1).unsqueeze(2).repeat(1,d1,d2)
+
+        noised_batch = torch.sqrt(ahat)*data + torch.sqrt(1.0 - ahat)*noise
+
+        return noised_batch, noise
+
+
+
+    def generation(self, x, t, pred_noise):
+
+        '''
+
+        Given a partially refined datapoint x, the time t, and a prediction from our model,
+
+        update and return the new x.
+
+        '''
+
+        z = torch.randn(*x.shape).to(torch.float32).to(self.device)
+
+        if t == 0:
+
+            z *= 0
+
+        beta = self.betas[t]
+
+        alpha = self.alphas[t]
+
+        alphahat = self.alpha_hats[t]
+
+        x = (1.0/math.sqrt(alpha))*(x - ((1.0 - alpha)/math.sqrt(1.0 - alphahat))*pred_noise) + math.sqrt(beta)*z
+
+        return x
+
+
+
+
+
+class FlowMatchingAlgo():
+
+    def __init__(self, T, step_size=20, **kwargs):
+
+        self.T = T
+
+        self.step_size = step_size
+
+        self.ts = list(range(self.T))[::step_size]
+
+        self.sampling_d = int(np.log2(step_size))
+
+        self.reverse_gen = False
+
+
+
+    def forward_diffusion(self, data, noise, t):
+
+        t_fractional = t.to(torch.float32) / float(self.T)
+
+        _, d1, d2 = data.shape
+
+        t_fractional = t_fractional[:,None,None].repeat(1,d1,d2)
+
+        noised_batch = (1.0-t_fractional)*noise + t_fractional*data
+
+        velocity = data - noise
+
+        return noised_batch, velocity
+
+
+
+    def generation(self, x, t, pred_noise):
+
+        # here the "predicted noise" is more accurately "velocity"
+
+        # we need to multiply by a scalar to get the appropriate change to x.
+
+        velocity = pred_noise
+
+        step_size_fractional = float(self.step_size)/float(self.T)
+
+        x = x + velocity*step_size_fractional
+
+        return x
+
+</code></pre>
+
+<h3>Flow Matching Policies on CarRacing-v3</h3>
+
+<p>We swap out flow matching as our algorithm of choice when creating a diffusion policy (I guess now a flow matching policy). Just like diffusion policies, we can use a UNet architecture and we make our network conditional on an observation: rather than Model(x, t) predicting a change in x, we now have Model(x, t, c) predicting that change.</p>
+
+<p><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math> is some tensor with the same size as a sequence of actions from an environment. Starting with random noise, we "flow" this tensor towards a generated snippet of actions which make sense given the current observation (<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>c</mi></mrow></math> above). Just like diffusion policies, our training data comes from a series of expert trajectories. Our goal is thus to generate actions, conditioned on observations, that would be drawn from the output distribution of the expert "policy", approximated here by data.</p>
+
+<p>My markdown converter is misbehaving so what I intended to be a table will have to be a list.</p>
+
+<ul>
+<li><p><strong>DDIM, 50 Step Generation:</strong></p>
+
+<ul>
+<li><p>Performance: 883.6 +/- 151.4 on average, 919.8 +/- 3.0 for middle 50% of episodes.</p></li>
+<li><p>FPS: 12.0, drops to 3.0 on generation steps</p></li>
+</ul></li>
+<li><p><strong>DDIM, 10 Step Generation:</strong></p>
+
+<ul>
+<li><p>Performance: 910.0 +/- 50.8 on average, 921.9 +/- 3.1 for middle 50% of episodes.</p></li>
+<li><p>FPS: 51.0, drops to 12.8 on generation steps</p></li>
+</ul></li>
+<li><p><strong>Flow Matching, 50 Step Generation:</strong></p>
+
+<ul>
+<li><p>Performance: 897.3 +/- 84.8 on average, 920.9 +/- 4.8 for middle 50% of episodes.</p></li>
+<li><p>FPS: 12.5, drops to 3.1 on generation steps</p></li>
+</ul></li>
+<li><p><strong>Flow Matching, 10 Step Generation:</strong></p>
+
+<ul>
+<li><p>Performance: 890.6 +/- 119.3 on average, 921.2 +/- 4.6 for middle 50% of episodes.</p></li>
+<li><p>FPS: 53.4, drops to 13.4 on generation steps</p></li>
+</ul></li>
+<li><p><strong>Expert Performance:</strong> 923.8 +/- 8.5</p></li>
+</ul>
+
+<p>In general, the flow matching policy performed very well, and it is much easier to implement (in my opinion) than diffusion. All versions of both policies generally matched the expert ability.</p>
+
+<p>In practice, a key limitation of these methods is needing to pause periodically to generate new actions, and this is reflected in the last column. If we assume this generation is the bottleneck for FPS, and we use this FPS for all actions to enforce smooth movement, what is the effective actions per second? If we do not care about smoothness, we can average out the FPS, seen in the second-to-last column.</p>
+
+<p>Finally, some results animations:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="small_animation.gif" alt="small_animation" /></p>
+
+<p>I am going to follow this post with a parallel write-up on shortcut models, which I have found to perform similarly to these techniques but overcome many annoyances in deployment.</p>
+
+<p>Update: that post is <a href="../short/shortcut.html">here</a>.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/short/shortcut.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/short/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Flowing with Fewer Steps</p>
+<p class='postpreview_subtitle'>Shortcut Models Notes and Review</p>
+<p class='postpreview_date'>December 12, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/flow/flow_notes.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/flow/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Going with the Flow</p>
+<p class='postpreview_subtitle'>Notes on Flow Matching (Policies)</p>
+<p class='postpreview_date'>December 9, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/rssm_tssm/wm1.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/rssm_tssm/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Modeling the World</p>
+<p class='postpreview_subtitle'>RSSM &amp; TSSM Notes and Experiments</p>
+<p class='postpreview_date'>December 1, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:10%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:45%; max-width:45%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>

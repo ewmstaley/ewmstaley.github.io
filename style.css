@@ -46,9 +46,9 @@ p a:hover {
 }
 
 math {
-	font-size: 1.1em;
-	margin-top: 10px;
-	margin-bottom: 10px;
+	font-size: 1.0em;
+	margin-top: 0px;
+	margin-bottom: 0px;
 }
 
 pre {
