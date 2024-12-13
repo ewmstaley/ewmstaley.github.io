@@ -28,7 +28,7 @@ header {
 p {
 	font-size: 1.2em;
 	text-align: justify;
-  	text-justify: inter-word;
+  text-justify: inter-word;
 }
 
 a {
@@ -151,6 +151,11 @@ iframe {
 
 	.profpic {
 		display: none;
+	}
+
+	p {
+		text-align: left;
+		text-justify: auto;
 	}
 }
 
@@ -290,6 +295,7 @@ blockquote {
 	background-position: center;
 }
 
+
 .postpreview_text {
 	margin: 10px;
 	height: 140px;
@@ -310,7 +316,16 @@ blockquote {
 	margin-bottom:0px;
 	font-size: clamp(14pt, 2.5vw, 1.5em);
 	font-weight: 300;
-  	font-style: italic;
+  font-style: italic;
+}
+
+@media (width<500px){
+	.postpreview_title {
+		font-size: clamp(14pt, 2.0vw, 20pt);
+	}
+	.postpreview_subtitle {
+		font-size: clamp(12pt, 1.8vw, 1.2em);
+	}
 }
 
 .postpreview_date {
