@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MuJoCo CycleGAN</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="MuJoCo CycleGAN" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="My notes on CycleGAN." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>MuJoCo CycleGAN</h1>
+
+<h2>(Mis)Adventures in Style Transfer, Part 1</h2>
+
+<p class='author'>January 27, 2025</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Above: Randomized half-cheetahs representing various related domains.</p>
+
+<h3>A Toy Problem</h3>
+
+<p>An idea I have been very interested in lately is style transfer for imitation learning: is it possible to collect demonstrations in one domain (i.e. videos of an animal running), and reconstruct an equivalent in a second domain (i.e. a quadruped simulation). This would unlock many potential data sources for expert demonstration.</p>
+
+<p>To explore this, I set up a toy problem: two variants of HalfCheetah, one the "standard" version from DRL, and the other with slightly different colors, proportions, and textures. Using only unpaired samples (image states) from both environments, is it possible to convert between them?</p>
+
+<p>This is proved to be much more difficult than I expected, and even now I am not sure I fully tackled my supposed "toy" problem. I thought I would document all of the many pitfalls I have encountered thus far, strange results, and why this might be a harder problem than I anticipated. Also, I wanted to showcase some really horrible blobs that some of my generative models made, which I am calling "MuJoCo Cronenbergs".</p>
+
+<p>Edit: This got long, and the blobs will be discussed and showcased in great detail in part 2.</p>
+
+<h3>Our Two Domains</h3>
+
+<p>For these experiments, I wanted to transfer pixel observations back and forth between the two environments shown below:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250124205408095.png" alt="image-20250124205408095" style="zoom: 67%;" /></p>
+
+<p>The new domain has slightly different dimensions and thicker links, but is generally capable of reaching the same states as original. More importantly, the new domain has different colors and a smaller checkerboard on the floor. </p>
+
+<p>It turns out that this is a much harder problem than it appears. While the above images look simplistic because they not in a photorealistic environment, this actually leads to some tricky issues in style transfer:</p>
+
+<p>1) There is very little shared visually between the domains. Conceptually they are very similar, but we only understand that as humans because we designate some sort of "objectness" to the cheetah and its environment. We cannot directly transfer any patches of pixels between the domains.</p>
+
+<p>2) There are bold patterns that are clear giveaways of being in one domain or the other, and these are a huge portion of the image. Specifically, these are more visually dominant than the actual subject of the images.</p>
+
+<p>3) The simple nature of the graphics leaves little room for error. If you want to generate natural images you can actually get pretty far with poor generations; clouds and foliage will still look natural even if they are a bit wonky. In this simulated world, visuals are precise and unforgiving.</p>
+
+<p>To understand why these are tricky, here are some results from approaches that I attempted: MUNIT, CycleGAN, and CycleDiffusion. All of these works are applied to multiple domains, but I selected these since they are illustrative:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250124210550718.png" alt="image-20250124210550718" style="zoom:67%;" /></p>
+
+<p>Note that in all these cases, the background details are shared between domains. This isolates the differences between the two domains for the networks, and makes it easier to learn. This is especially important for GAN-based approaches (MUNIT and CycleGAN), which explicitly learn to distinguish between the two (or more accurately, between real and fake members of each).</p>
+
+<p>The examples above come from domains which have their own sets of challenges (more details, for example), but I just wanted to highlight some of the peculiarities of doing style transfer on simulated images. In hindsight, I would recommend something else for initial experimentation.</p>
+
+<h3>MUNIT</h3>
+
+<p>Having recently spent a lot of time exploring world models and GAIL (post coming eventually), it was very appealing to attempt solving this with some sort of autoencoder. If both domains can be compressed into some sort of style-less latent space, then this is an excellent starting point for down-stream applications. For example, this could be directly fed into an MLP-based policy that is "style agnostic". i.e., some sort of latent style-transfer could perhaps double as a nice representation for future tasks.</p>
+
+<p>This "style-less" latent space is one of the key ideas behind MUNIT (which is an extension of UNIT), and I think intuitively this idea makes a lot of sense. In both of our domains, there is some simpler, style-less representation that captures the content of the images. A network would represent this as some latent bottleneck, but we can even express this visually:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250124212710743.png" alt="image-20250124212710743" style="zoom:80%;" /></p>
+
+<p>If we can extract the content from the image, then we can re-generate it in either style. In MUNIT, we learn an autoencoder for each style that learns two latent spaces: one for content and one for style. If done correctly, we can swap the content around between the two systems to generate in a desired style:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250124213002713.png" alt="image-20250124213002713" style="zoom:80%;" /></p>
+
+<p>During training, MUNIT has a lot more than this going on. A discriminator is trained for each domain to help ensure that content from domain A still leads to a valid image in domain B, and vice versa. Additionally, a loss is added to ensure that if a content and style are decoded to make an image, then these same content and style features can be recovered by the encoder (a sort of inverse autoencoder- an autodecoder?).</p>
+
+<p>I really struggled getting results with this technique, and called it quits when I looked at the official repo and it said that they trained with 8 GPUs. I ran into mode collapse many times, and I am unclear how best to remedy this. I definitely would like to try to fix my implementation in the future, since this approach is very elegant on paper.</p>
+
+<h3>CycleGAN</h3>
+
+<p>CycleGAN proved to be much more forgiving than MUNIT, as I almost always could get a recognizable image to be produced during transfer. While similar to MUNIT, CycleGAN uses an image-to-image network to transfer between styles without the extreme bottleneck of an autoencoder, and this means that the "gist" of the input is going to be pretty easy to capture and retain in the new style.</p>
+
+<p>I will say that I initially messed this aspect up pretty severely- if you google CycleGAN there are lots of nice network diagrams, and many of them depict an encoder/decoder setup. This really isn't true. CycleGAN uses fully convolutional networks that don't compress the images too much (4x width and height in my case). Instead, imagine feeding an image from one domain through a long ResNet chain of convolutions, and having the corresponding re-styled image come out the other end.</p>
+
+<p>CycleGAN trains two of these convolutional nets, which function as "generators". Each generator is trained with three different losses. Here a subscript denotes a description of the image domain or domains.</p>
+
+<ul>
+<li><p><strong>Identity Loss:</strong> An image already in the desired domain should not be affected by passing through the generator. </p>
+
+<ul>
+<li><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>L</mi><mn>1</mn><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>A</mi></msub><mo>&#x0002C;</mo><msub><mi>G</mi><mi>A</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>A</mi></msub><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math>​</li>
+</ul></li>
+<li><p><strong>GAN Loss:</strong> An image converted to a new domain should not be distinguishable from true images from that domain (via a discriminator).</p>
+
+<ul>
+<li><p>Flows back from <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>M</mi><mi>S</mi><mi>E</mi><mo stretchy="false">&#x00028;</mo><msub><mi>D</mi><mi>A</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mrow><mi>B</mi><mo>&#x02192;</mo><mi>A</mi></mrow></msub><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><mi>R</mi><mi>e</mi><mi>a</mi><mi>l</mi><mo stretchy="false">&#x00029;</mo></mrow></math>​</p></li>
+<li><p>where:  <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mrow><mi>B</mi><mo>&#x02192;</mo><mi>A</mi></mrow></msub><mo>&#x0003D;</mo><msub><mi>G</mi><mi>B</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>A</mi></msub><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+</ul></li>
+<li><p><strong>Cycle Loss:</strong> An image converted to a new domain should be convertible back to its original domain, completing a "cycle" through both generators.</p>
+
+<ul>
+<li><p><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>L</mi><mn>1</mn><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>A</mi></msub><mo>&#x0002C;</mo><msub><mi>x</mi><mrow><mi>A</mi><mo>&#x02192;</mo><mi>B</mi><mo>&#x02192;</mo><mi>A</mi></mrow></msub><mo stretchy="false">&#x00029;</mo></mrow></math>​</p></li>
+<li><p>where:  <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>x</mi><mrow><mi>A</mi><mo>&#x02192;</mo><mi>B</mi><mo>&#x02192;</mo><mi>A</mi></mrow></msub><mo>&#x0003D;</mo><msub><mi>G</mi><mi>A</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>G</mi><mi>B</mi></msub><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>A</mi></msub><mo stretchy="false">&#x00029;</mo><mo stretchy="false">&#x00029;</mo></mrow></math></p></li>
+</ul></li>
+</ul>
+
+<p>These are symmetrical for the other generator (swap A and B above).</p>
+
+<p>We also need to train a discriminator for each domain, which is the same as other GANs. I tried adding a gradient penalty but it works fine without one. We have:</p>
+
+<ul>
+<li><p><strong>Discriminator Loss:</strong> Learn to classify true images and fake images.</p>
+
+<ul>
+<li><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>M</mi><mi>S</mi><mi>E</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mi>A</mi></msub><mo>&#x0002C;</mo><mi>R</mi><mi>e</mi><mi>a</mi><mi>l</mi><mo stretchy="false">&#x00029;</mo></mrow></math> </li>
+<li><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>M</mi><mi>S</mi><mi>E</mi><mo stretchy="false">&#x00028;</mo><msub><mi>x</mi><mrow><mi>B</mi><mo>&#x02192;</mo><mi>A</mi></mrow></msub><mo>&#x0002C;</mo><mi>F</mi><mi>a</mi><mi>k</mi><mi>e</mi><mo stretchy="false">&#x00029;</mo></mrow></math></li>
+</ul></li>
+</ul>
+
+<p>Like the generators, this occurs symmetrically for both domains.</p>
+
+<p>To summarize the above, a diagram of (one half) of CycleGAN. Repeat for both domains.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250125170251560.png" alt="image-20250125170251560" /></p>
+
+<h4>Architectures</h4>
+
+<p>To capture this somewhere, the architectures I used were primarily taken from <a href="https://github.com/theopfr/cycle-gan-pytorch/tree/main">this repo</a>, and most changes to them made them worse. I only tweaked them slightly in the end.</p>
+
+<p><strong>Generator:</strong></p>
+
+<ul>
+<li><p>Input images normalized [-1,1], and an initial convolution to get up to desired number of channels.</p></li>
+<li><p>Conv block followed by downsample (pooling), from (128x128) to (64x64)</p></li>
+<li><p>Conv block followed by downsample, from (64x64) to (32x32)</p></li>
+<li><p>A bunch of ResNet blocks in a row at this same size, something like 10 blocks of 2 convs each.</p></li>
+<li><p>Upsample followed by conv block, to get back to (64x64)</p></li>
+<li><p>Upsample followed by conv block, to get back to (128x128)</p></li>
+<li><p>End with tanh() to output in [-1,1]</p></li>
+</ul>
+
+<p><strong>Discriminator:</strong></p>
+
+<ul>
+<li><p>Input images normalized [-1,1], and an initial convolution to get up to desired number of channels.</p></li>
+<li><p>Conv block followed by downsample (pooling) to reduce dimensions by half</p>
+
+<ul>
+<li>Repeat this until it gets really small. I used five of these to get down to (4x4).</li>
+</ul></li>
+<li><p>Flatten into a 2 or 3 layer MLP that ends with a single output</p></li>
+<li><p>End with sigmoid activation.</p>
+
+<ul>
+<li>I don't know why this uses MSE() of a sigmoid instead of BCE. But it works. If someone knows, please tell me. </li>
+</ul></li>
+</ul>
+
+<h4>Results of CycleGAN</h4>
+
+<p>CycleGAN works fairly well. Images are clearly recognizable as one domain or the other, although this is primarily in coloring and textures. For example, the grid on the floor is almost always recolored when moving domains, but not re-generated in the appropriate size. Similarly, the thickness of the cheetah is not adjusted appropriately between domains. I think this is primarily due to the cycle loss: The model is encouraged to retain features where possible, and it is much easier to recolor a feature than erase it and then regenerate it when "completing the cycle".</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250125174539472.png" alt="image-20250125174539472" /></p>
+
+<p>It's... okay. I also got some results in which transferring away from the standard appearance works well, but not the reverse (this is the typical result I get when running the above repo without modification):</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250128174231868.png" alt="image-20250128174231868" style="zoom:67%;" /></p>
+
+<h4>Brief Lessons from CycleGAN</h4>
+
+<p>I tinkered with the architecture a lot and noticed a few things:</p>
+
+<ul>
+<li><p>It is easy to get mediocre results, but hard to get good results. The architectures seem quite finicky: playing around with different CNN architectures often results in miscoloring or exaggerated features in the output.</p></li>
+<li><p>A larger discriminator (more channels, deeper) seems to always help. If you have some VRAM left, make the discriminator bigger.</p></li>
+<li><p>It is really easy to screw up the losses because there are so many of them. Additionally, if only one is wrong, the results will be good enough as to make you think you have done it correctly.</p></li>
+</ul>
+
+<p>The last point really got me, and I will detail my failures as both an illustrative lesson and a form of catharsis. With so many terms I got the order mixed up. Here is what I ran for my first few experiments:</p>
+
+<pre><code>
+# pseudocode: THIS IS WRONG
+
+
+
+# first zero gradients for generators and discriminators
+
+# generator passes
+
+imgA_fake = GA(imgB)
+
+imgA_cyc = GA(imgB_fake)
+
+imgA_iden = GA(imgA)
+
+# &lt; repeat above for B &gt;
+
+
+
+loss_gen += L1(imgA, imgA_iden)
+
+loss_gen += L1(imgA, imgA_cyc)
+
+loss_gen += MSE(DA(imgA_fake), 1.0)
+
+# &lt; repeat above for B &gt;
+
+
+
+loss_disc += MSE(DA(imgA.detach()), 1.0)
+
+loss_disc += MSE(DA(imgA_fake.detach()), 0.0)
+
+# &lt; repeat above for B &gt;
+
+
+
+loss_gen.backward()
+
+opt_gen.step()
+
+
+
+loss_disc.backward()
+
+opt_disc.step()
+
+
+
+# pseudocode: THIS IS WRONG
+
+</code></pre>
+
+<p>I was so close. When calling backward() on the generator loss, this backpropagates through the discriminator for the adversarial loss. Even though the discriminator has its own optimizer, a gradient is still introduced which is then added to when updating the discriminator.</p>
+
+<p>There are probably a few ways to fix this but regardless of how you address it, you have to be very careful to keep things separate. If you have worked with GANs before this possibly obvious, but it definitely stumped me for a few days.</p>
+
+<pre><code>
+# pseudocode: THIS IS CORRECT
+
+
+
+# first zero gradients for generators and discriminators
+
+# generator passes for fake iamges
+
+imgA_fake = GA(imgB)
+
+# &lt; repeat above for B &gt;
+
+
+
+# losses for discriminator
+
+loss_disc += MSE(DA(imgA.detach()), 1.0)
+
+loss_disc += MSE(DA(imgA_fake.detach()), 0.0)
+
+# &lt; repeat above for B &gt;
+
+
+
+# step discriminator now, before adversarial update to generator
+
+loss_disc.backward()
+
+opt_disc.step()
+
+
+
+# the rest of the generator outputs
+
+imgA_cyc = GA(imgB_fake)
+
+imgA_iden = GA(imgA)
+
+# &lt; repeat above for B &gt;
+
+
+
+loss_gen += L1(imgA, imgA_iden)
+
+loss_gen += L1(imgA, imgA_cyc)
+
+loss_gen += MSE(DA(imgA_fake), 1.0)
+
+# &lt; repeat above for B &gt;
+
+
+
+loss_gen.backward()
+
+opt_gen.step()
+
+
+
+# pseudocode: THIS IS CORRECT
+
+</code></pre>
+
+<h3>Making CycleGAN Work for this Problem</h3>
+
+<p>I suspected that the "cycle" was the main reason for deficiencies in the output: the generators are encouraged by the cycle to retain visual features rather than generate new ones. So, I decided to break the cycle:</p>
+
+<pre><code>
+# instead of this:
+
+imgA_cyc = GA(imgB_fake)
+
+loss_gen += L1(imgA, imgA_cyc)
+
+
+
+# I did this:
+
+imgA_cyc = GA(imgB_fake.detach()) # grad will not flow back into GB
+
+loss_gen += L1(imgA, imgA_cyc)
+
+</code></pre>
+
+<p>That's it. </p>
+
+<p>It works incredibly well. It turns out that this goes far beyond the grid on the floor- I think all the fuzziness can be explained by the generators trying to hold on to features rather than creating new ones that are properly in the desired domain. Here are the initial results:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250125181147887.png" alt="image-20250125181147887" /></p>
+
+<p>It's not perfect but hugely improved. Textures appear to be appropriately sized, colored, etc. So I decided to train this for longer and with bigger networks. This worked really well. The shadows and reflections in column 3 are fixed and there are very few issues in the floor grid in column 4. I think this is going to be hard to beat:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250127180145501.png" alt="image-20250127180145501" style="zoom:80%;" /></p>
+
+<p>I will also note something really interesting: if you take out the cycle loss entirely, it doesn't work. My best guess: <strong>the "broken" cycle loss seems to aid the generators by providing synthetic examples of paired training data.</strong> The data is not necessary very good, especially early in training, but it is still an example of some extractable structure with a corresponding ground truth in the target domain. Much more direct than a discriminator. Therefore, there is probably some sort of bootstrapping thing that happens: once the adversarial loss leads to mediocre style transfer, this actually acts as an example of good transfer the other way, albeit from a not-necessarily-in-distribution input. The bad quality of the input may even be helpful here.</p>
+
+<p>Here are the results with no cycle at all:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250128173757712.png" alt="image-20250128173757712" /></p>
+
+<h3>Up Next</h3>
+
+<p>In the next post I will look at flow-matching methods that I have been examining in parallel, stemming from a work called CycleDiffusion.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/style1/cyclegan_mujoco.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/style1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>MuJoCo CycleGAN</p>
+<p class='postpreview_subtitle'>(Mis)Adventures in Style Transfer, Part 1</p>
+<p class='postpreview_date'>January 27, 2025</p>
+</div>
+</div>
+</a>
+<a href='../../posts/short/shortcut.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/short/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Flowing with Fewer Steps</p>
+<p class='postpreview_subtitle'>Shortcut Models Notes and Review</p>
+<p class='postpreview_date'>December 12, 2024</p>
+</div>
+</div>
+</a>
+<a href='../../posts/flow/flow_notes.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/flow/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Going with the Flow</p>
+<p class='postpreview_subtitle'>Notes on Flow Matching (Policies)</p>
+<p class='postpreview_date'>December 9, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
