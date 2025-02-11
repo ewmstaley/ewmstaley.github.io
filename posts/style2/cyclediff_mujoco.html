@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MuJoCo Cyclic Flow</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="MuJoCo Cyclic Flow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Style Transfer with Flow Matching." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>MuJoCo Cronenbergs</h1>
+
+<h2>(Mis)Adventures in Style Transfer, Part 2</h2>
+
+<p class='author'>February 10, 2025</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Above: Some entertaining flow matching results.</p>
+
+<h3>Toy Problem Recap</h3>
+
+<p>In my <a href="../style1/cyclegan_mujoco.html">last post</a>, I looked at implementing <a href="https://arxiv.org/abs/1703.10593">CycleGAN</a> to transfer between two variants of the HalfCheetah environment in MuJoCo, as a stand-in for a scenario in which you have demonstration data in one domain, but need to train a policy in another. For example, two similar robotic platforms, two environments of the same platform, and so on.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="https://www.tedstaley.com/posts/style1/image-20250124205408095.png" alt="image-20250124205408095" style="zoom: 67%;" /></p>
+
+<p>In the case of CycleGAN, I was able to get really good results but only after removing the "cycle" term, which reinforces the ability to not only transfer from one domain to another, but also to transfer back and recover the original data point. This is a key idea from CycleGAN: we initially know more about transferring "back" to the starting domain (where we have ground truth), than transferring away from it. This applies no matter which domain you consider the start. However, this term in CycleGAN also discouraged the generation of features that were unique to only one domain, since those can not be transferred all the way through the cycle.</p>
+
+<p>I have been experimenting a lot with diffusion and flow matching recently, so I decided to try using these techniques for style transfer rather than GANs. I will say upfront that I am unclear which is actually better- both were able to perform really well for this toy problem and a more difficult challenge would be needed to determine when one outperforms the other.</p>
+
+<h3>Cronenbergs</h3>
+
+<p>The first step to my exploration, and a good starting point for any future experiments, is to simply generate images from both domains using a flow matching model. I have only tried generating images once before (see this post), in which I used a diffusion model to generate flower images. In hindsight this was a very forgiving problem, since lots of randomness is to be expected in the structure of flowers and even nonsense can appear "natural", as long as the right colors and textures are there.</p>
+
+<p>I quickly found this out when generating HalfCheetah images, which are the opposite. The MuJoCo images are crisp simulation renderings with a known structure, and "nonsense" is really easy to spot. The first one or two attempts were so incredibly bad that I wanted to post about it, and that was really the starting point for a more concerted deep dive into this problem.</p>
+
+<p>Behold, some of my initial results:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250210212124377.png" alt="image-20250210212124377" /></p>
+
+<p>The phrase that immediately came to mind was "Cronenbergs," coined by Rick and Morty in reference to David Cronenberg, who has made a variety of movies that include horrifying mutations and hybrids of the human body. A good recent example of a "Cronenberg" might be the ending of The Substance, which I will not explain to avoid spoilers. But its gross.</p>
+
+<p>In my mind, the key feature of a Cronenberg, and what makes it scary, is that pieces of it are recognizable. Taking these pieces and composing them together in a bizarre way makes a monster. And this is exactly what my flow models did. The pieces are there but the overall form is not. I tried to find some of the best ones:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250210215841577.png" alt="image-20250210215841577" /></p>
+
+<p>If I hadn't generated these myself I would think someone just got really carried away with making new RL environments. It's a really fun failure mode: they look like real renders, but the overall structure of the "creature" is just random.</p>
+
+<p>This strange juxtaposition- proper details but incorrect composition- allowed me to eventually trace the problem down. My models were using UNets that did not have enough modules. Each module of the UNet downsizes the input and allows the model to reason at a lower resolution, focusing on the overall structure instead of the pixel-level details. So with a very short UNet, we get details, but no structure. Quickly fixed by making the network bigger, and we quickly get nice, believable generations (usually):</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250210215921378.png" alt="image-20250210215921378" style="zoom:80%;" /></p>
+
+<p>No style transfer yet, but at least a good starting point.</p>
+
+<h3>Direct Flow</h3>
+
+<p>One quick thing to try, which did not work, is simply to flow between the two domains instead of starting from noise. I was inspired by this result from the Rectified Flows paper (see <a href="https://www.cs.utexas.edu/~lqiang/rectflow/html/intro.html">this blog post</a> by the authors):</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250209230528993.png" alt="image-20250209230528993" /></p>
+
+<p>And so I tried the following:</p>
+
+<div class='algo'>
+
+<ul>
+<li><p>Select random batches from each domain, B1 and B2</p></li>
+<li><p>Train a flow model to output velocity (B2-B1) at each timestep between 0 and 1, where:</p>
+
+<ul>
+<li>The input at timestep <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> is a linear interpolation: <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>B</mi><mn>2</mn></msub><mi>t</mi><mo>&#x0002B;</mo><msub><mi>B</mi><mn>1</mn></msub><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mi>t</mi><mo stretchy="false">&#x00029;</mo></mrow></math></li>
+</ul></li>
+</ul>
+
+</div>
+
+<p>This was a bad idea. Since the images are unpaired, there is actually very little to transfer between two randomly selected samples from each, and the model basically just learned to (poorly) generate a sample from domain B that is unrelated to the sample from domain A.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250210215956148.png" alt="image-20250210215956148" style="zoom:80%;" /></p>
+
+<p>On closer inspection, it looks like in this specific case the authors of Rectified Flow modify their loss function to weight image values according to how much they change a latent representation of the images, taken from a classifier. See equation (20) in the <a href="https://arxiv.org/pdf/2209.03003">Rectified Flow paper</a>. I think this boils down to something like: learn to flow the images to the other domain, but don't make changes that would too greatly change the image's latent representation at any one step. This results in generations which retain the structure of the original image, and even some of the outlying details like the man's collar above. This was intended by the authors: they specifically want to make images that are not fully in the new domain, but instead are plausible hybrids between the two.</p>
+
+<h3>CycleDiffusion</h3>
+
+<p>I spent much more time looking at an idea called <a href="https://arxiv.org/pdf/2210.05559">CycleDiffusion</a>, which presents a really elegant solution to this problem: as you add more and more noise to an image, you are disrupting coarser and coarser features that are present. If you add a little bit of noise, this only disrupts the details but keeps the overall structure. As you add more noise, this structure becomes more disrupted. When the image is almost completely random noise, only the very dominant shapes of the image will be recoverable.</p>
+
+<p>In reverse, this also explains flow matching generation: from random noise, the first few passes generate large composition, and each pass adds slightly finer details until the final image is correct at the pixel level:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250209233756225.png" alt="image-20250209233756225" style="zoom:80%;" /></p>
+
+<p>For style transfer, we can exploit this property directly by noising an image in domain A, such that only some structure is kept, and then denoising it (flowing it from this point) in domain B, to regenerate the missing details, but in the other domain. If we simply train a flow matching model for the target domain, we can use it to generate details that are domain-appropriate.</p>
+
+<p>An interesting aspect is that we can decide how of the initial image to retain. We can just noise it a little bit, in which case only small details might be edited, or we can noise it a lot, in which only the high-level structure will be kept. If the new domain is accustomed to seeing this type of structure, it should have not problem generating a corresponding "transferred" image. In the extreme case, 100% noise, we are back to unconditional generation in the new domain.</p>
+
+<div class='algo'>
+
+<p>Given some trained flow matching model for a specific domain:</p>
+
+<ul>
+<li><p>Start with an out-of-domain image, <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>I</mi></mrow></math></p></li>
+<li><p>Choose a point <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> between 0 and 1 at which to supply the image to the model</p></li>
+<li><p>Construct <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>X</mi><mi>t</mi></msub><mo>&#x0003D;</mo><mi>I</mi><mo>&#x0002A;</mo><mi>t</mi><mo>&#x0002B;</mo><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mn>0</mn><mo stretchy="false">&#x00029;</mo><mo>&#x0002A;</mo><mi>N</mi><mi>o</mi><mi>i</mi><mi>s</mi><mi>e</mi></mrow></math>​ </p></li>
+<li><p>Generate by flowing <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>X</mi><mi>t</mi></msub></mrow></math> from <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>t</mi></mrow></math> to 1.0</p></li>
+</ul>
+
+</div>
+
+<h3>Results</h3>
+
+<p>This worked very well, but it takes some tuning of the "amount of noise" you want to start with. Too little and the model will not really have an opportunity to complete the transfer, too much and the resulting image will just be unrelated to your starting point. For this problem, values around 70% or 80% noise seemed to work, which is more than I anticipated. At this level, it is hard for me to even tell that there is any structure left. At lower levels, we have some clear issues with the floor: it transfers detail (color) but is not generating new structure (size of tiles).</p>
+
+<p>This diagram shows a good result:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250209235258886.png" alt="image-20250209235258886" /></p>
+
+<p>At high starting noise, the results can be on par with CycleGAN in my opinion. However, looking at more samples it is clear that the trade off between structure and detail can create problems. For example, the floor generates best with high noise, so that this feature can essentially be "regenerated". But this is also where the HalfCheetah doesn't do well- we need the structure of this portion preserved, and this does better with less noise.</p>
+
+<p>Here are more examples, transferred at a variety of noise levels. We can see small problems no matter what noise level we choose:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250210220342280.png" alt="image-20250210220342280" /></p>
+
+<p>Compare, for example, the floor textures in 80% vs 60%, as well as the cheetah body.</p>
+
+<h3>Improvements and Next Steps</h3>
+
+<p>Can we do better? Yes! I was able to combine some ideas from CycleGAN and CycleDiffusion to get some really good results. I am still trying to determine if I will write this into a paper, so I will not go into too much detail here. In short, we can make a diffusion model that has no "choice of starting noise," as a user parameter, and learns how to generate new features when needed while retaining structure that is helpful. </p>
+
+<p>Some results below. Not perfect (the occasional extra foot still appears), but overall a promising direction:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250210220722319.png" alt="image-20250210220722319" style="zoom:80%;" /></p>
+
+<p>Next I'd like to compare this against CycleGAN on more challenging domains, and also look at style transfer for multiple frames in sequence. Instead of transferring an individual pixel state, could we transfer a whole trajectory? This may actually be better performing, since we can condition on adjacent states as hints as to what we should generate.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/style2/cyclediff_mujoco.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/style2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>MuJoCo Cronenbergs</p>
+<p class='postpreview_subtitle'>(Mis)Adventures in Style Transfer, Part 2</p>
+<p class='postpreview_date'>February 10, 2025</p>
+</div>
+</div>
+</a>
+<a href='../../posts/style1/cyclegan_mujoco.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/style1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>MuJoCo CycleGAN</p>
+<p class='postpreview_subtitle'>(Mis)Adventures in Style Transfer, Part 1</p>
+<p class='postpreview_date'>January 27, 2025</p>
+</div>
+</div>
+</a>
+<a href='../../posts/short/shortcut.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/short/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Flowing with Fewer Steps</p>
+<p class='postpreview_subtitle'>Shortcut Models Notes and Review</p>
+<p class='postpreview_date'>December 12, 2024</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
