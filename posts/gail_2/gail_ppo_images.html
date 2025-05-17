@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GAIL with Pixels Only</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="GAIL with Pixels Only" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Exploration of GAIL" />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>GAIL with Pixels Only</h1>
+
+<h2>Rewarding for Visual Fidelity</h2>
+
+<p class='author'>May 16, 2025</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<h3>GAIL with Only State Sequences</h3>
+
+<p>One of my key interests in investigating GAIL was to see if it could be extended to only use state information, rather than the standard (state, action) pairs. Furthermore, could these states be images instead of low-level vectors? If so, this approaches learning directly from video examples: we see sequences of images showing a desired behavior, and through RL we need to learn a policy that behaves in a visually similar way.</p>
+
+<p>The first step towards this goal is altering GAIL to work without action information. If we simply move from (s,a) tuples to (s,) tuples, we are tasking our discriminator with asking the following question: to what extent is a given state reached by our expert instead of our policy?</p>
+
+<p>This seems a bit restrictive and possibly degenerate: we do not want our policy to simply occupy individual states that the expert also occupies. For example, the expert and policy probably share similar initial states, and simply occupying that state is not a valid solution. Instead, we want our policy to move through sequences of states in the same way as our expert. To encourage this, I adopted a simple frame-stacking routine that bundles the four most recent states (as is common in Atari tasks).</p>
+
+<p>Our discriminator now acts on <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x00028;</mo><msub><mi>s</mi><mrow><mi>i</mi><mo>&#x02212;</mo><mn>3</mn></mrow></msub><mo>&#x0002C;</mo><msub><mi>s</mi><mrow><mi>i</mi><mo>&#x02212;</mo><mn>2</mn></mrow></msub><mo>&#x0002C;</mo><msub><mi>s</mi><mrow><mi>i</mi><mo>&#x02212;</mo><mn>1</mn></mrow></msub><mo>&#x0002C;</mo><msub><mi>s</mi><mrow><mi>i</mi></mrow></msub><mo stretchy="false">&#x00029;</mo></mrow></math>, which asks of the discriminator: Is this snippet of states taken from expert trajectories or from our policy? Note that the policy and value function are still operating on individual states in this case, although this is not a requirement.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250501214313311.png" alt="image-20250501214313311" /></p>
+
+<p>It is interesting to think about the impact of the reward being associated with a history of four states. The standard GAIL setup has a nice one-to-one correspondence between rewards and transitions: for each action you take, you get a reward that only measures the "expertness" of that one transition. However, since RL optimizes for long-term returns, there is nothing that prevents us from delaying or stretching our rewards. When we stack a history of N states together, we are assigning some reward that is a function of state for the next N transitions. In other words, we collect returns on any one state for N steps.</p>
+
+<p>One approach I tried initially was to look <em>ahead</em> N steps rather than <em>behind</em> by N steps, and on further consideration this is not a good idea. While on the surface it seems similar (in either case we are running the discriminator over a sliding window of N steps), it breaks some basic assumptions about cause and effect. If we take some action in the near future that leads to a large reward or penalty, we shouldn't get credit before that action is even taken. This principle is sometimes called "reward-to-go" (https://spinningup.openai.com/en/latest/spinningup/rl_intro3.html#don-t-let-the-past-distract-you). </p>
+
+<h3>State Sequence Results</h3>
+
+<p>Before introducing pixels, we can examine how well our algorithm works with state sequences. As in the previous post, we are using experts from a SAC policy on HalfCheetah-v4. Based on the success of adding reward normalization in standard GAIL, I added that here as well. I tried stacking 1, 2, 3, 4 or 5 recent states in a sequence for the discriminator, where I expected a single state to be degenerate as described above. Actually, all settings worked fairly well, perhaps even better than most of my runs operating on (s,a) tuples: </p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250516171124562.png" alt="image-20250516171124562" /></p>
+
+<h3>GAIL with Only Image States</h3>
+
+<p>Problems began when switching to images. In the past I have used MPI to run PPO in a "decentralized" fashion, meaning that each parallel process has a complete copy of the program, including an environment instance. During updates, gradients are averaged between processes so that all copies perform a shared update. Besides this, each process is essentially running its own copy of PPO. </p>
+
+<p>When we add a discriminator, we also need a copy on each process and we do a shared discriminator update. The whole thing might look something like this:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250501214818892.png" alt="image-20250501214818892" /></p>
+
+<p>For 10 environments, we actually have 30 neural networks, but they are small MLPs and they can zip along on their own cpu core.</p>
+
+<p>When we switch over to images of any appreciable size, we suddenly have 30 CNNs trying to run on the CPU all at once, and my overpriced RGB fans can only spin so fast. With some awkwardness I was able to move these to GPU memory and still share gradients via MPI, but this didn't really help: 30 CNNs do not fit on my GPU. So we need to try something else.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="https://lh7-rt.googleusercontent.com/slidesz/AGV_vUcBQ5CM_xcXz07CqhUs_t_Z0gKRA1sAIixKCw2H1BAsnjGMQ5RsHYqOXkMPseSZDNHqw4ivVMOZwUSXk1Yb24GzPg_Akw6mFw-B6KKBPVMa7-ajxvgWs-RVBd1A_5Lq8Ed0WBWtXA=s2048?key=0Zn_r-AUg5Uc3AnwWr0KbTZw" alt="img" /></p>
+
+<h3>Fixes</h3>
+
+<p>I came up with two substantial changes that made this manageable. Firstly, we can use the "centralized" version of PPO, the mysterious algorithmic twin known as… PPO 2. </p>
+
+<p>PPO2 is not a sequel to PPO, simply an alternative. Stemming all the way back to OpenAI's RL baselines, there have been two ways to run PPO, creatively named "ppo1" and "ppo2". PPO1 is what I have described above and used thus far, because it scales well and is really fast for small networks. I call it <em>decentralized</em> PPO because all processes are the same and none are acting as the master process. To run 10 environments to run 10 processes. Easy.</p>
+
+<p>PPO2 is centralized and only holds networks on the master process. Parallelization and data sharing occur during the rollout instead of the update: the network operates on a batch of N states, one from each environment, and outputs N actions. These are sent to N environments housed on individual threads, and all environments step forward in parallel. The resulting states are aggregated back on the central process, and the loop repeats. During the update step, we only have one network to worry about.</p>
+
+<p>The benefit of PPO2 is that the network(s) can all be on GPU and operated on batched data. For CNNs, this is substantially faster (although it is substantially slower for small MLPs!). I have since updated my PPO implementation to support either method with a flag.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250501214901055.png" alt="image-20250501214901055" /></p>
+
+<p>The second improvement is to introduce everyone's first and favorite network, the autoencoder, to learn a common vector representation for all the other networks to enjoy. We now intercept states from the environment and immediately encode them, so that all other networks (policy, value, discriminator) operate on these latent representations. This introduces even more hyperparameters and loops into our code, but substantially cuts down on compute overhead.</p>
+
+<p>For this setup I decided to add frame-stacking on the environment side, so our latent state actually represents a compressed set of four images as a single vector. The policy and value networks remain as MLPs and operate directly on these vectors. The discriminator operates on these vectors from the environment as well as latent compressions of sets of four images from the expert. It is critical to re-encode the expert data with the latest autoencoder each time we want to use it.</p>
+
+<p>Here is my attempt at a diagram showing various data paths through the system. Despite all the criss-crossing arrows, this is not trained end-to-end. Various buffers capture data along the way to update an individual component.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20250501214926208.png" alt="image-20250501214926208" /></p>
+
+<p>With this change, our algorithm now has the following structure. Purple highlights were introduced in the previous post (GAIL), and green highlights show the new changes to include the autoencoder:</p>
+
+<div class='algo'>
+
+<p><strong>GAIL+PPO+Autoencoder: Repeat until converged:</strong></p>
+
+<ol>
+<li><p><ahl> Start with expert demonstration trajectories of desired behavior. </ahl></p></li>
+<li><p>Use the policy to collect data from the environment.</p>
+
+<ul>
+<li><p><ahl2>Store raw image states to train the autoencoder.</ahl2></p></li>
+<li><p><ahl2>Replace image states with their latent representation from the encoder.</ahl2></p></li>
+<li><p><ahl>Replace the reward with the degree to which the discriminator predicts a given (s,a) pair is from the expert. </ahl></p></li>
+</ul></li>
+
+<li><p><ahl2>Use samples from the raw expert images and raw policy images to update the autoencoder.</ahl2></p></li>
+
+<li><p><ahl>Use samples from the expert data and the policy-generated data to update the discriminator.</ahl></p>
+
+<ul>
+<li><ahl>The discriminator should classify between the two data sources.</ahl></li>
+</ul></li>
+
+<li><p>Use the collected data to update the policy:</p>
+
+<ul>
+<li>The policy should predict actions proportional to how beneficial they are.</li>
+</ul></li>
+<li><p>Use this data to update the value network:</p>
+
+<ul>
+<li>The value function should predict the expected return from each state (the experienced return).</li>
+</ul></li>
+<li><p>Throw away the data: it no longer reflects the current policy's behavior.</p></li>
+</ol>
+
+</div>
+
+<p>The additions for GAIL are highlighted. These additions add a lot of hyperparameters, and we need to balance the training of PPO with the discriminator. Just as the policy and value network take on many update steps per round of data collection, we can also update the discriminator for many steps.</p>
+
+<h3>Results</h3>
+
+<p>Does it work? Yes, kind of. We now have four networks training dynamically; any change to one will impact the other three. It is a balancing act and I do not recommend it: I had many, many runs go sideways. Eventually, I found stable settings and was able to piece together some good runs. See the training curve below for the most successful run:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="AGV_vUe1YfTZdeUFG0veWxxbDRDwPDrFgVp0PaLJloMkqCjYAHAPD7LZNVOai4CBzpdzNpNDccQiPGhtnrDDK2sWx5ta_JY6iq0DGOekkEsGJztFFKoIg5TqjFLv4GRKAbgaM5XsBQh9IA=s2048.png" alt="img" /></p>
+
+<p>A few things to note: Firstly, this run is over 200M environment steps, which is 4x longer than previous experiments. With changes to PPO and using autoencoders to operate on compressed states, I was able to run at 500-600 fps, but it still takes about 4 days to perform a training run of this length. This is perhaps made worse by the frequent behavior of delayed learning progress; it often took 30M steps or more to see a convincing upward trend in reward. I would attribute this to the learning dynamics of the many networks. The discriminator and the autoencoder both need to get to a stablish place before they can really inform the policy.</p>
+
+<p>For all these downsides, the final performance is actually very good. Extended training experience aside, it works as well as any other GAIL configuration I tried. Looking at the raw returns (light blue region), the best episodes are close to expert performance (around 630).</p>
+
+<h3>Takeaways</h3>
+
+<p>I was surprised by two things in these experiments: firstly, I was not expecting the image-sequence approach to be so unstable. The above plot is not representative of my typical result, which was quite poor. To comment on the other end of the performance spectrum, I left one of my runs online while I went on vacation in April, and came back to returns around negative one million.</p>
+
+<p>Meanwhile, the initial experiments with low-level state sequences performed really well. Taken further, this would amount to considering entire trajectories (or large portions of them) as opposed to individual transitions, and this motivates something like a transformer-based approach which is meant for sequence processing. If available, long chains of (s,a,s,a,s,a,...) are probably the best option. It's possible that this would also fix some of the instability seen in the image-based method, but further exploration would be needed.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/gail_2/gail_ppo_images.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/gail_2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>GAIL with Pixels Only</p>
+<p class='postpreview_subtitle'>Rewarding for Visual Fidelity</p>
+<p class='postpreview_date'>May 16, 2025</p>
+</div>
+</div>
+</a>
+<a href='../../posts/gail_1/gail_ppo.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/gail_1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>GAIL</p>
+<p class='postpreview_subtitle'>Rewarding for Fidelity</p>
+<p class='postpreview_date'>April 29, 2025</p>
+</div>
+</div>
+</a>
+<a href='../../posts/style2/cyclediff_mujoco.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/style2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>MuJoCo Cronenbergs</p>
+<p class='postpreview_subtitle'>(Mis)Adventures in Style Transfer, Part 2</p>
+<p class='postpreview_date'>February 10, 2025</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2024 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>

@@ -272,6 +272,10 @@ ahl {
 	color: var(--color-2);
 }
 
+ahl2 {
+	color: #2ea66c;
+}
+
 .postpreview {
 	display: flex;
 	justify-content: left;
