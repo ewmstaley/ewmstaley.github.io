@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLMs, MatSci, NeurIPS 2025</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="LLMs, MatSci, NeurIPS 2025" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.jpg" />
+  <meta property="og:description" content="Notes on NeurIPS 2025 workshop paper." />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>LLMs, MatSci, NeurIPS 2025</h1>
+
+<h2>Coupling GPT with Materials Synthesis Simulation</h2>
+
+<p class='author'>March 12, 2026</p>
+
+<div class='coverwrap' style='background-image:url("cover.jpg");'></div>
+
+<h3>The Return of the Blog</h3>
+
+<p>It has been almost a year since I have posted anything here, partially through neglect but primarily because a lot of things I would like to post on this blog (robots, VLAs, etc) are closely tied to my work at APL. So because of IP agreements, public release red tape, blah blah blah, that makes it hard to post on the internet. So for now, I am going to try resuming this blog with a combination of things that have been approved for public release, and some more philosophical posts about AI and tech.</p>
+
+<p>For something concrete to start things off: I had a workshop paper at NeurIPS last December, so I thought I would document it here and discuss some interesting aspects of the work. We explored a problem that appears deceptively simple at first, and ends up being really hard to solve well. It also provided some insight as to how AI might impact fields beyond software engineering.</p>
+
+<p>For reference, the full paper is: <a href="https://openreview.net/forum?id=ctyy8EJYQj">Coupling Language Models with Physics-based Simulation for Synthesis of Inorganic Materials</a>.</p>
+
+<h3>LLMs + Materials Synthesis Simulation</h3>
+
+<p>My specific work at NeurIPS concerned the application of LLMs to materials synthesis: to what degree could an LLM understand or recommend a process for making a target material? A <em>material</em> here means a combination of certain elements in some desired ratio <em>and</em> with some desired structure (a "phase"). The critical piece is not just predicting that a material exists or that it would have some structure, but actually articulating how to achieve that structure in practice. What steps of heating, cooling, and mixing need to be taken, over what durations of time, to actually get the material to physically form? This is the problem of material synthesis.</p>
+
+<p>This is a problem domain that was (and still is) very foreign to me, but served as a great driver in thinking about how AI might have impact beyond work done on a computer. We have in one hand an LLM, which is fantastic at manipulating strings and code on a machine. In the other, a physical lab space where you need to melt things together and let them cool to form a tangible solid mass of material. And for all the hype surrounding AI, it is pretty difficult to figure out exactly how to link these two systems together.</p>
+
+<p>In this exploratory study, the approach was to take the lab and put it on the machine, i.e. build a simulation of what happens when materials mix and heat and cool, and expose that to the LLM as an external tool. No actual heating and cooling involved. The question posed to the LLM is: given a known set of elements and some target combination of them, in some structure (a phase), can the LLM drive the simulation a few times and determine a viable set of steps to form the material?</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260312204332810.png" alt="image-20260312204332810" style="zoom: 50%;" /></p>
+
+<h3>The Problem Up Close</h3>
+
+<p>This problem is very interesting from the computer science perspective, with or without the LLM involved. The simulator essentially exposes a huge space of possible things to do, and you have to figure out which things to execute, in which order, to achieve the goal. If like me you have an RL background, this is immediately recognizable as a sort of "gym environment for material synthesis": what actions need to be taken to achieve the desired end state? </p>
+
+<p>To be formal, we are given a set of elements that we can mix, heat, and cool. In our experiments we used niobium and oxygen, which form different compounds based on the following phase diagram: </p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260312204458401.png" alt="image-20260312204458401" style="zoom: 67%;" /></p>
+
+<p>This diagram only shows major transition points where phases start or stop forming, given by the solid black lines. Most points in this space actually have two or more phases that co-exist! At high temperatures, the purple region (L) notes that we have liquid (molten) material. </p>
+
+<p>Our simulator will essentially track a blob of material that lies somewhere in this space, including all the fractional phases that have formed. As we change the amount of each element or change the temperature, the simulator will make sure we know what is actually formed at any point in time.</p>
+
+<p>This information will be our "state" at any one instant: a representation of what materials and phases currently exist in our simulated crucible of niobium-oxygen goo. This can be described in just a few numbers: the fractions of niobium and oxygen, the temperature, and the fractional amounts of each possible phase that exist. For Nb and O this is only nine possible phases, so our entire state is 12 numbers.</p>
+
+<p>Our actions are even simpler: to (1) sprinkle in X amount of a raw element, (2) to heat our material up, (3) to cool our material down, or (4) to hold at the current temperature for some amount of time. We could make these continuous and specify <em>how</em> <em>much</em> <em>material</em> to add or <em>what temperature</em> to set, or just discretize them into a few options that make fixed-size adjustments. </p>
+
+<p>The objective is to have some starting state, and find a sequence of actions that reach some goal state. Typically, the start and goal are both at room temperature (not even on the diagram), because we want to handle the resulting material at the end.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260312205728988.png" alt="image-20260312205728988" style="zoom:50%;" /></p>
+
+<h3>Is this easy?</h3>
+
+<p>We have an environment that is defined by only a few floats for states and actions. It is fully deterministic, and the set of start states is really small (some ratio of Nb and O at room temperature). Some very brute force techniques are even worth considering. Can we search through the space manually? Can we just optimize a sequence of N actions? Could we just enumerate some discretized grid of all possible states and go from there?</p>
+
+<p>The answer turns out to be: not really.</p>
+
+<p>It is really intuitive to consider an open space of points (or a discrete grid) of states. We might encounter a state like:</p>
+
+<ul>
+<li>51% Nb, 49% O, at 1000 C, Phase A: 10%, Phase B: 90%</li>
+</ul>
+
+<p>And then later encounter something like:</p>
+
+<ul>
+<li>52% Nb, 48% O, 1050 C, Phase A: 20%, Phase B: 80%</li>
+</ul>
+
+<p>Clearly these are really similar states, right? Actually... we don't know. Our intuition is misleading here. What makes this problem quite difficult is that the notions of distance between two states are undefined. Sure, these are close in vector space, but how we actually move between them (the distance we care about) is governed by the laws of physics and chemistry and not something we can infer from looking at these two vectors. Maybe we can move from one to the other by sprinkling in some material and heating for a minute. But maybe you physically cannot move linearly between them and you actually need to heat to an entirely new phase, add material, cool at a controlled rate, add material, and hold temperature for 6 hours so that the crystals start getting along with each other and the correct state forms.</p>
+
+<p>It's kind of like trying to travel in the mountains via car. Going between one town and one on the adjacent mountain might take three minutes because there is a nice tunnel connecting them. Going to the town at the base might take 4 hours because the only way to get a car there is to drive all the way around 25 mountains to that one pass built by settlers in the 1840s. Basically, physical distance has nothing to do with it.</p>
+
+<p>The other twist in this problem is that unlike many video games and simple robotics problems, the simulator state evolves with time no matter what your actions are. If your action is to just wait, the material will still oxidize and grow crystals and do all sort of things without your input. The action are not just about order of events, they are also about timing. In this way it is actually a control problem.</p>
+
+<h3>Trying Search Anyway</h3>
+
+<p>One way to search a space that is this gross and changes over time is to pretend that it is not gross at all. This type of reductive thinking is a key engineering skill. I tried A* search with Euclidean distances between state vectors.</p>
+
+<p>The only redeeming factor here is that A* will just... keep going. It doesn't get stuck in loops (for this type of problem anyway) and even if its priorities are all messed up it will actually explore everything as time goes to infinity. So how does this go?</p>
+
+<p>Not great. Several problems just ran until A* exhausted system resources. It often explored tens of millions of states, which might not sound like a lot but keep in mind each state is representing a full simulation state of how element interact and form under heat and pressure. These are expensive states as states go.</p>
+
+<p>We can still map out what A* tries to do (below). Projecting states onto only two dimensions, we can see that for one problem A* just drills down two possible paths that seems to make progress towards the goal. Eventually one of them clicks and it finds a nice sequence of many little heating and composition adjustments fall into place (black line).</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260312205819988.png" alt="image-20260312205819988" style="zoom: 67%;" /></p>
+
+<p>There is also a second solution on this diagram, in pink. This is an alternative solution discovered by GPT 4.</p>
+
+<h3>Enter the LLM</h3>
+
+<p>What if we guide search with an LLM instead? Why on earth would that work? An LLM (GPT 4 in this case) was trained on text, not material synthesis or simulators. It has never even used this simulator before. It doesn't understand the complexities of the Nb-O system, and cannot go trying millions of possibilities without racking up institutional-level debt to OpenAI.</p>
+
+<p>However, the LLM <em>does</em> have some understanding of materials science more broadly. It knows that this space is gross apriori, something I cannot really bake into to A* myself. It knows how some common materials might be formed. In a prompt, I can even give it some tips on the problem and what my material science colleagues have to say. Essentially, even though the LLM is not built for this problem, it will at least try things that are not dumb. Most of the cycles of A* were spent doing things that were dumb, but hard to quantify as dumb.</p>
+
+<p>After a few iterations we settled on exposing the entire simulator as a single tool call. The LLM can supply an initial condition and a plan of actions to execute, and the simulator will tell it what happened. And we just let it go back and forth for a while. The LLM only tries a handful of simulations before it concludes by itself that either it solved the problem or gave it a good try. This is a clear area for improvement: giving the LLM more stamina in the face of adversity.</p>
+
+<h3>Results</h3>
+
+<p>I was pleasantly surprised that this does sometimes work. It's not perfect, maybe not even good, but it definitely feels subjectively like the LLM has the right idea. It will iterate through the problem a few times, try to understand the space, and often attempts synthesis plans that appear to be good ideas. </p>
+
+<p>It is also interesting that because LLM generation has stochasticity baked in, repeated attempts of the same problem yield different results. On some problems that LLM will find an exact solution on one run and then completely fail the same problem when spun up again. A best-of-N approach seems very promising.</p>
+
+<p>Finally, and most importantly, we had one challenge problem that was solved by the LLM and not by A* (challenge problem 3 in the paper). We needed to do some prompt tuning that included known solutions to other goals in the Nb-O system, and run the problem a few times, but <em>was</em> able to find paths that yielded the exact material we asked for. I was happy with that.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260312210014446.png" alt="image-20260312210014446" style="zoom:67%;" /></p>
+
+<p>Here can see the spread of solution error for a few different challenge problems given in the paper. All of these are trying to make some material in the Nb-O system. An error of 1.0 does just indicates that the final material was too different from what was requested to be acceptable, and errors near zero are essentially perfect. After prompt tuning, the LLM was able to find perfect answers to problem 3 (sometimes), which it struggled with previously.</p>
+
+<h3>AI Meets the Real World</h3>
+
+<p>Putting the technical work aside, this project was a great opportunity to think about how AI might impact fields far beyond what I work in day-to-day. The most important lesson for me was that fields like MatSci have fundamentally different ways to capture their underlying data. It seems kind of obvious in hindsight but the problem explored above is not really described in text or images; the true representation of this problem is a gross high-dimensional evolving space that is unique to the combination of niobium and oxygen. We can simulate it (expensively) or physically realize it in a lab. While we could describe it in diagrams and accompanying text, these are only partial views of something very complex. </p>
+
+<p>If we were to think about the larger space of all combinations of all elements, how exactly would something like an LLM come into play? In this post the LLM was using the simulator as a tool, but what if we actually wanted a large model training and operating on this data as a first-class input? I don't really know what that would look like.</p>
+
+<p>Most of the hype around AI right now is around coding agents and existential threats to fields that produce or work with text. I don't think the hype is entirely unfounded, but it is really important to understand that those fields are built around bodies of work that are well-suited for an LLM to ingest or be trained upon. Granted, this might apply to most things, but not to everything.</p>
+
+<p>Code has (pre-LLM) been almost entirely created by software engineers, and is cataloged by and for software engineers. Similarly, the data on the internet is organized and structured in forms dictated by software. So now that we have software engineers trying to find and ingest a bunch of data into AI systems, the best candidate by far is going to be exactly the data that software engineers already work with. We currently have huge amounts of hype around exactly this.</p>
+
+<p>I am not sure we should assume that the same thing is going to immediately happen in other fields where the status quo is different. i.e., the state of the field is not maintained by and for computer scientists. Material science might fall into that camp. The collective data / wisdom of material science is not <em>in</em>accessible, and LLMs can definitely go to work trying to digitize / organize / repo-ize it, but its not necessarily sitting there on a digital silver platter either. Only so much of the world exists entirely on a computer.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/neurips25/neurips25.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/neurips25/cover.jpg");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>LLMs, MatSci, NeurIPS 2025</p>
+<p class='postpreview_subtitle'>Coupling GPT with Materials Synthesis Simulation</p>
+<p class='postpreview_date'>March 12, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/gail_2/gail_ppo_images.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/gail_2/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>GAIL with Pixels Only</p>
+<p class='postpreview_subtitle'>Rewarding for Visual Fidelity</p>
+<p class='postpreview_date'>May 16, 2025</p>
+</div>
+</div>
+</a>
+<a href='../../posts/gail_1/gail_ppo.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/gail_1/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>GAIL</p>
+<p class='postpreview_subtitle'>Rewarding for Fidelity</p>
+<p class='postpreview_date'>April 29, 2025</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2026 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
