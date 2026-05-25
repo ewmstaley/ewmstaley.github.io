@@ -81,7 +81,7 @@
 
 <p>When capturing demonstrations to train diffusion policies, VLAs, or world models, contact points and forces between surfaces are difficult to record. These phenomena occur exactly where vision is often occluded, and will not visually register at all if two bodies in contact are completely rigid. Therefore, whether performing teleoperation or collecting data from a human directly, it may be of interest to have sensors that record pressure or "touch" at key locations.</p>
 
-<p>The previous post outlined how to make a basic touch sensor with Arduino and velostat, demonstrating one "cell" of the <a href="https://flexitac.github.io/">FlexiTac</a> sensing grid. In this post, I will continue working towards a construction of an 8x8 touch sensing grid following their designs.</p>
+<p>The <a href="../touch1/touch1.html">previous post</a> outlined how to make a basic touch sensor with Arduino and velostat, demonstrating one "cell" of the <a href="https://flexitac.github.io/">FlexiTac</a> sensing grid. In this post, I will continue working towards a construction of an 8x8 touch sensing grid following their designs.</p>
 
 <p>I should note up front that the goal of this prototyping was to (1) build a touch sensor by hand in order to (2) understand and explain how it works. The finished product is noisy and has lots of sensing artifacts when you interact with it, which I will explain further below. After this stage, the proper way forward would be to follow the FlexiTac tutorials in having the sensor constructed for you as a flexible PCB. I am hoping that in the future I will be able to explore this as a part three.</p>
 
@@ -236,7 +236,7 @@ for(int i =0; i&lt;8; i++){
 <li><p>We can clearly see multiple, simultaneous, pressure-sensitive readings. This is most clear in the example using thumbs.</p></li>
 <li><p>Although the grid is coarse, there is some notion of area. Compare the response from the pencil eraser to the thumb press.</p></li>
 <li><p>There are some artifacts in other areas of the grid, which I believe are mainly due to my construction. Between the packing tape and the not-perfectly-flexible wires, it is easy for force in one location to create tension in another. We especially see this around the edges where the sensor is flexing against the wires that are taped down (see right side in the thumbs example).</p></li>
-<li><p>The sensor is not nearly as sensitive as the single-cell in part one. As you play with the grid and the forces squish it around, the average reading corresponding to "no pressure" drifts. To mitigate this, I purposefully was more aggressive about discarding low readings.</p></li>
+<li><p>The sensor is not nearly as sensitive as the single-cell in <a href="../touch1/touch1.html">part one</a>. As you play with the grid and the forces squish it around, the average reading corresponding to "no pressure" drifts. To mitigate this, I purposefully was more aggressive about discarding low readings.</p></li>
 </ul>
 
 <p>I think most of the issues above would be solved by better construction (PCB), as well as better filtering of the sensor readings. It is also not clear to me how well this type of sensor would operate on a non-flat surface. For example, if this were covering a moving joint or something very deformable, there seems to be a conflation of "sensor is changing shape" and "sensor has pressure applied to it". Both are deformations that alter the resistance of the velostat.</p>
