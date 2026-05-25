@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thoughts on Hand Capture</title>
+
+  <!-- social previews-->
+  <meta property="og:title" content="Thoughts on Hand Capture" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="And Reconstructing FlexiTac, Part One" />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Thoughts on Hand Capture</h1>
+
+<h2>And Reconstructing FlexiTac, Part One</h2>
+
+<p class='author'>May 23, 2026</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Lately I have been thinking a lot about data collection for VLAs and world models. For really complex manipulation tasks, especially performed by a trained expert, you probably need to capture human hand movements with as little interference as possible. Don’t get me wrong, you can do a lot with two- or three-finger grippers and teleoperation. However, I also would not ask a professional chef to cook a meal with pinchers. Eventually robotics may require expert direct demonstrations, and it’s interesting to think about how you might capture it (if the cooking example doesn’t resonate, pick your favorite skilled manipulation: surgery, welding, concert violin, etc).</p>
+
+<p>The most foreign aspect of this, to me, is how to capture touch data and contacts. The second half of this post and all of the next are dedicated to building a small touch sensing grid following the designs of the <a href="https://flexitac.github.io/">FlexiTac</a> from Yunzhu Li's lab at Columbia.</p>
+
+<h3>Hand Capture</h3>
+
+<p>There are really three types of data you might want to capture from a "hands-on" demonstration: (1) where the hand is in space (position / orientation of the hand frame), (2) the individual joint positions of the hand, and (3) what the hand itself is sensing (namely touch sensing, but this could include other things like temperature).</p>
+
+<p>The first one (hand frame) could be solved either externally with cameras that track the hand / markers on the hand, and/or with sensors on the hand itself, treating it more like a flying object that needs to track its own position with VIO or SLAM. </p>
+
+<p>Side note, one of my first projects at APL, back when I still remembered something about mechanical engineering, was to design a wrist piece for the <a href="https://www.jhuapl.edu/work/projects-and-missions/revolutionizing-prosthetics/overview">MPL</a> (an anthropomorphic arm+hand) that had embedded infrared LEDs in a known arrangement. An external motion tracking camera could then provide an exact position and rotation of the hand in real time. This remains a very strong candidate for something like hand frame tracking.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260525151117386.png" alt="image-20260525151117386" style="zoom: 67%;" /></p>
+
+<p>The last option (on-board tracking) is probably the most difficult but has the major advantage of not needing line-of-sight to a sensor. If you wanted to capture the movements of, say, a mechanic working underneath a car, you probably need that sort of thing. For general household activities, the other options are probably simpler.</p>
+
+<p>The second capture need, hand joint positioning, is much harder but I think still doable if you are willing to get creative. Again there are external or on-board (on-hand?) options: models that track the hand skeleton / envelope from external images (also an option for the prior point), or you could consider sensing up each joint directly. Interesting options here include flex sensors, which change resistance as they bend, and small rotation encoders on some sort of lightweight exoskeleton. The exoskeleton, if it can be made compact enough, would give the most accurate information.</p>
+
+<p>Flex sensors are noteworthy because they work in a very similar way to the FlexiTac touch sensor explored below. Conductive particles are suspended in some material, such that they get closer or further apart as the material deforms. In the case of a bend sensor, the particles are spread apart as the material bends around some radius, increasing the resistance of the material. By monitoring the resistance across the bending region, you can roughly determine the current bend angle:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260525151206485.png" alt="image-20260525151206485" style="zoom:67%;" /></p>
+
+<p>This is just my commentary on hypothetical solutions. The point is really that tracking positions and joint angles is a familiar and mostly-solvable aspect of robotics. If you stare at this problem long enough, you come up with some ideas. </p>
+
+<p>For an exoskeleton, the <a href="https://www.genrobot.ai/products/dex">DAS Dex</a> from GenRobot is a nice illustration of how you might track the hand and individual joints. As seen in their recent promo video, they use head-mounted cameras to track the hand frame (I’m guessing), and tiny magnetic encoders on each joint, which provide high accuracy and a small form factor.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260525151247955.png" alt="image-20260525151247955" style="zoom:67%;" /></p>
+
+<h3>Touch Capture</h3>
+
+<p>So this brings me to point (3), touch sensing, which is much more mysterious to me. I have not worked with touch sensors before, and they are not necessarily a mainstay of robotics setups. </p>
+
+<p>The one touch sensor I am familiar with, at least conceptually, is the <a href="https://www.youtube.com/watch?v=w1EBdbe4Nes">GelSight</a>, which is absolutely genius and operates by applying a colored lighting onto the inside of flexible dome or pad. A camera then watches the surface deform from the inside, including twists and sheers. My understanding is that this camera-under-surface technique makes the sensor non-trivially thick, so it may not be a good candidate for trying to sense what a human is touching in real time. This would be something like putting a whole electronic-sensing finger under your own finger. Might work but a little awkward.</p>
+
+<p>However, while at NeurIPS in December I saw something new to me: the <a href="https://flexitac.github.io/">FlexiTac</a>. It is very thin, flat, flexible, and responsive. I got to poke it a few times at their demo table. I believe they won an award for their demo.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260525151318087.png" alt="image-20260525151318087" style="zoom:67%;" /></p>
+
+<p>So, obviously, I needed to understand this magic, and build a crude version myself in my basement. Note that the FlexiTac is open-source and you definitely do <em>not</em> need to build it yourself like I did, but it is a very educational exercise. The rest of this post, and probably the next one, is about that.</p>
+
+<h3>Velostat</h3>
+
+<p>First let’s talk about Velostat. Velostat (also called Linqstat) is a pretty interesting material. It looks like a sheet of black rubber. But it is essentially a plastic film (not conductive) that is impregnated with teeny tiny blobs of carbon (yes conductive), making a material that is conductive-ish with a pretty high resistance. You could technically even call it a semiconductor in the most general sense, but I think that would be frowned upon. I learned that the grown-up term is "piezoresistive".</p>
+
+<p>What is cool about this material is that the resistance is proportional to how far apart these carbon particles are. If the material is squeezed, the particles get closer, and it is easier for electricity to flow through (resistance goes down). Therefore, the resistance of the material is a fairly direct measure of how much pressure is being applied at the point of measurement:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260525151621599.png" alt="image-20260525151621599" style="zoom:67%;" /></p>
+
+<h3>Velostat Pressure Sensor</h3>
+
+<p>It is actually quite straightforward to make a single-point pressure sensor using a little square of velostat and an Arduino. You just sandwich the velostat between two ends of wire or copper foil, and have your Arduino supply voltage across it.</p>
+
+<p>You can then use a voltage divider to read the voltage at the other side of the sensor: place the sensor in series with a known resistance and read the voltage in-between these two. The voltage is inversely related to the resistance of the sensor. In other words, the more you squeeze the sensor, the higher your reading.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260525151656036.png" alt="image-20260525151656036" style="zoom:67%;" /></p>
+
+<p>Here is what that actually looks like in a crude video. We have a square of velostat, a few wires, some packing tape as a protective layer, and voilà, a pressure sensor:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="output_cell.gif"  style="zoom:67%;" /></p>
+
+<p>It’s not that shabby of a pressure sensor either. It is fairly responsive (just touching it gives some sort of response), and responds proportionately to pressure so you also get an indication of how much force is being applied, not just a binary yes there is touch / no there isn’t. There probably all sorts of fun things you could do with this.</p>
+
+<h3>The Grid</h3>
+
+<p>So why do we care about this? Well the sensor above is essentially one "cell" of the FlexiTac sensor grid. The FlexiTac works by running wires along each side of a sheet of velostat orthogonal to each other, creating a grid. To read the pressure at a specific point in the grid, say cell (i,j), you just need to check the resistance between wire i on one side and wire j on the other.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260525151849670.png" alt="image-20260525151849670" style="zoom:50%;" /></p>
+
+<p>This quickly becomes an exercise in wiring, and probably needs its own post. Once you have more wires than pins on the Arduino, things get a bit more complex. But still doable! And educational! Stay tuned for the next part, "Two Many Wires".</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/touch2/touch2.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/touch2/preview.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>An 8x8 Touch Sensor</p>
+<p class='postpreview_subtitle'>Reconstructing FlexiTac, Part Two</p>
+<p class='postpreview_date'>May 25, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/touch1/touch1.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/touch1/preview.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Thoughts on Hand Capture</p>
+<p class='postpreview_subtitle'>And Reconstructing FlexiTac, Part One</p>
+<p class='postpreview_date'>May 23, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/shuffling/shuffling.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/shuffling/preview.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>On Shuffling Tokens</p>
+<p class='postpreview_subtitle'>Preparing Trillion-Token Datasets</p>
+<p class='postpreview_date'>May 12, 2026</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2026 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
