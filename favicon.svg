@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 360 360">
+  <!-- Generator: Adobe Illustrator 29.8.11, SVG Export Plug-In . SVG Version: 2.1.1 Build 11)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #19193a;
+      }
+
+/* Dark Mode Colors */
+    @media (prefers-color-scheme: dark) {
+      .st0 {
+        fill: #F5F5F5;
+      }
+    }
+    </style>
+  </defs>
+  <path class="st0" d="M119.09,316.41v-27.93l43.06-10.86-10.09,13.97V74.72l11.25,8.53h-63.23l12.41-10.86-10.47,49.27h-32.98V43.3h221.9v78.36h-32.98l-9.7-46.94,11.64,8.53h-63.23l11.25-8.53v216.86l-9.7-13.97,42.67,10.86v27.93h-121.81Z"/>
+</svg>

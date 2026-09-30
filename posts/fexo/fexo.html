@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Finger Exoskeleton</title>
+
+  <!-- favicon -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+
+  <!-- social previews-->
+  <meta property="og:title" content="Finger Exoskeleton" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Light Sensors to Read Finger Joints" />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Finger Exoskeleton</h1>
+
+<h2>Using Light Sensors to Read Finger Joint Angles</h2>
+
+<p class='author'>September 26, 2026</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>A key capability I would like to see developed in robotics is capturing detailed demonstration data from human hands <em>without impeding the skills of whomever those hands belong to</em>. This seems like it will get more important as the tasks attempted in robotics get more and more skilled: Today there are hand-tracking video systems / motion capture systems that could watch a human pick up a simple object on a clean tabletop and predict resulting hand and finger poses. But imagine trying to capture the hands of a chef working quickly, a surgeon operating, or a plumber working under a sink. Video systems become obstructed, and putting clunky devices on the hands themselves may prevent the skill in the first place.</p>
+
+<p>Nonetheless these are really the only two standard approaches that I can think of: you either need to watch the hands, sensor-up the hands, or some combination. (There are some other exotic options like tapping into the internal movements of the arm to estimate state. See <a href="https://news.mit.edu/2026/wristband-enables-wearers-control-robotic-hand-with-own-movements-0325">this insanely cool work from MIT</a>). </p>
+
+<p>Trying to work directly from video seems like a losing battle to me, although it certainly would be a clean setup for the demonstrator. I cannot see how you get around occlusion problems, and if you want to capture tactile sensing or forces you probably need a glove of some kind anyway. Not to mention, a robotic hand will probably use internal sensors to monitor joint positions, not video, so on-hand sensors creates a nice correspondence between robot joint sensing and the demonstration data.</p>
+
+<h3>One-Fifth of One Glove</h3>
+
+<p>If gloves are the way to go, how could I make some sort of joint-angle detecting glove, even if version one is unwieldy? I have been tinkering with various stretch and position sensors with very little success until a few weeks ago. I could not find anything that was (1) very responsive, (2) very accurate, and (3) could probably be made tiny. Responsive / accurate / tiny is also a combo that could quickly become expensive, and I on an arduino-level budget.</p>
+
+<p>But I had a good idea a few weeks ago, and made a prototype that works! I was able to make a rough exoskeleton for my pointer finger (a "fexoskeleton", if you will), and the results are really nice with almost no signal filtering or other hoops to jump through. It worked right away. Before a breakdown of the system, here is a video of the results:</p>
+
+<iframe width="100%" height="400" src=https://www.youtube.com/embed/wh5wqNBZUw0?si=JqXwzOPyXElfviIt" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+<p>The video shows a realtime side-by-side of my finger moving and the measured joint angles displayed on a series of four linkages, corresponding to back-of-hand and the three segments of my pointer finger. Note that this only measures three joint angles of the finger bending towards/away from the palm, and does not capture finger spread (still trying to work that out).</p>
+
+<h3>The Light at the End of the Tunnel</h3>
+
+<p>The main idea I have been iterating on is to have some sort of sliding mechanism on the back of each finger segment that is pulled or elongated when the finger bends. When you bend your finger, the distance over each knuckle increases, and therefore any material along the back of the finger will stretch (like the back of a glove or even your own skin). If you can measure this displacement you can infer the amount of bending.</p>
+
+<p>The breakthrough I had was to stop trying to mechanically actuate a sensor with this motion, and instead just try to track the distance between two points. On a whim I dug out a photodiode and LED from my original Arduino kit and found that the photodiode could very accurately reflect the distance of the LED provided there were no interfering light sources. This led to a very simple distance sensor: a small tube with a photoresistor at one end, and an LED sliding back and forth from the other end. The photoresistor changes resistance in response to light levels, so by monitoring the resistance of the photoresistor we can measure the position of the LED:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260930124337059.png" alt="image-20260930124337059" /></p>
+
+<p>To test this setup I ordered some plastic tubes and make a crude sliding plunger system. A photoresistor at the end of a larger tube and a sort of LED magic wand on a narrower tube. By sliding the LED back and forth it was immediately clear that this had some nice properties: not only was it very responsive (instant change in resistance), it was also consistent. I could record a specific (length, resistance) and come back to it later without sensor drift. Now if these pieces could be coupled to the hand, we would have a working prototype.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260930124429126.png" alt="image-20260930124429126" /></p>
+
+<h3>Angler Fish</h3>
+
+<p>Really only two changes are needed to apply the above sensor to a finger segment: the outer tube needs to run along the back of a finger segment, and the LED+inner tube need to attached to the next segment along the finger. When you bend that joint, the outer tube with the photoresistor stay fixed, and the LED is pulled down the tube away from the photoresistor. When you open your hand, the LED is pushed back, closer to the photoresistor:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260930124507810.png" alt="image-20260930124507810" /></p>
+
+<p>I started called this design the "angler fish" because you have a dangling light probe coming off of each finger segment. It was tricky to find a linking material (black line in the above diagram) that would be both flexible and also transmit force both ways. For example, a string would certainly pull the LED down the tube when curing a finger, but opening the finger would not push the LED back again- the string would just go limp. Something very stiff would also not work as it would either snap or permanently deform during bending. I finally settled on a segment of a zip tie, which seemed to strike a nice balance.</p>
+
+<p>The other matter was keeping this one the finger itself, and I started looking at backplates and strap systems. Took many tries, but I found that thin nylon tubing and velcro were a good combo. Elastic also works well, but there seems to be a very fine line between finger sensor is too loose and finger does not get adequate bloodflow.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260930124607461.png" alt="image-20260930124607461" style="zoom: 67%;" /></p>
+
+<p>Above, some discarded "backplate" designs that were either too hard to fit correctly (top), too wobbly (left), or too hard to make (right). I eventually bought Velcro and superglued it to the inside. Worked great.</p>
+
+<h3>Complete Single Segment</h3>
+
+<p>With all the materials figured out we can outline a signal segment. A backplate sits along the back of the finger segment, held on with a velcro strap. A tube runs along this backplate, and contains an "angler fish" LED to slide along the prior segment, and a photoresistor to measure displacement of the future segment. The first of these in the chain (back of hand) does not need an LED, and the last in the chain (over your fingernail) does not need a photoresistor.</p>
+
+<p>The photoresistor and the LED can both share a 5V line, which I ran along one side of the chain of sensors. The LEDs also need a ground line (plus a resistor), and photoresistors each need to be read by the Arduino in a voltage divider so they each have a returning signal line (green). I found the wiring/soldering of this thing to honestly be a headache, but I think that is just a lack of experience. On paper it is pretty straightforward:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260930124657936.png" alt="image-20260930124657936" /></p>
+
+<h3>A Fexoskeleton</h3>
+
+<p>Putting four of those together gives us a complete finger exoskeleton. An unintended design choice is that the tubing is thin enough that light comes through, so you get a really cool visual of lights attached to each finger segment shining through the plastic. In fact, you can watch each light move as you bend a portion of your finger:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="bend.gif" alt="bend" /></p>
+
+<p>Here is the whole contraption on my left hand:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20260930124750420.png" alt="image-20260930124750420" /></p>
+
+<p>To measure joint angles from this setup, we just need to find a correspondence between the resistance of the photodiodes and the angles of the fingers. I did not try to make this exact, but for the visual came up with a really easy calibration "procedure":</p>
+
+<ul>
+<li><p>Turn on device</p></li>
+<li><p>Open hand as wide as you can, and measure the resistance. My fingers can flex backwards slightly, so this corresponds to maybe -5 degrees.</p></li>
+<li><p>Close fist as tight as you can, and measure the resistance. Again just eyeballing things, this is maybe ~100 degrees the other way.</p></li>
+<li><p>Now when you get a resistance reading, linearly map it to this same range. With Arduino I set the read rate at 100Hz, but could certainly go even faster. I also used a very short-term sliding window average to smooth things out.</p></li>
+</ul>
+
+<h3>Results</h3>
+
+<p>As seen in the top video, we get pretty nice mirroring of the finger position. I did not try to quantify the joint accuracy but clearly it is responsive and I think with careful tuning could in fact be quite accurate. Most of the slop that is present I attribute to the backplates sliding around a little bit; the sensing itself seems to be very reliable.</p>
+
+<p>I made sure to test that each joint could be measured independently, and tried a few fast motions to make sure that quick jerks/snaps would be picked up:</p>
+
+<p>Showing each joint independently:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="each_joint.gif" alt="each_joint" /></p>
+
+<p>And responsiveness:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="fast1.gif" alt="fast1" /></p>
+
+<p>I am excited about this because not only does it work well, but I also think it could be vastly improved further and reduced in size. The limitations on size and construction for this prototype were (1) what can I buy on Amazon? and (2) what can I glue and solder by hand? I am sure this could be made much, much smaller and more accurate.</p>
+
+<p>The next step is certainly to try to reduce size, simplify construction, and then make enough modules for a full glove. A huge benefit of a glove with a shared backing or shell is that it keeps all the sensors in the right place, and you can put on the whole system at once. In hindsight, individually velcroing each segment is not a good approach (I often needed help just to do the four straps pictured above). </p>
+
+<p>I need to figure out how to capture finger spreading, and how the design might need modification for the thumb. These might actually be the same question! I am not at the moment jumping at the chance to hand-build ~16 more segments, but I think I will definitely come back to it in the future. I am (re-)learning how to CAD and 3D print for another project (to be posted soon), and I suspect that will be incredibly helpful for round two.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/fexo/fexo.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/fexo/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Finger Exoskeleton</p>
+<p class='postpreview_subtitle'>Using Light Sensors to Read Finger Joint Angles</p>
+<p class='postpreview_date'>September 26, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/touch2/touch2.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/touch2/preview.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>An 8x8 Touch Sensor</p>
+<p class='postpreview_subtitle'>Reconstructing FlexiTac, Part Two</p>
+<p class='postpreview_date'>May 25, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/touch1/touch1.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/touch1/preview.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Thoughts on Hand Capture</p>
+<p class='postpreview_subtitle'>And Reconstructing FlexiTac, Part One</p>
+<p class='postpreview_date'>May 23, 2026</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2026 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
