@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IROS 2026</title>
+
+  <!-- favicon -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+
+  <!-- social previews-->
+  <meta property="og:title" content="IROS 2026" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Poster Presentation and Favorites" />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>IROS 2026</h1>
+
+<h2>Poster Presentation and Favorites</h2>
+
+<p class='author'>October 05, 2026</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>Last week I had the opportunity to present a poster and lightning talk at the <a href="https://worlds-iros2026.github.io/">IROS WORLDS Workshop</a> and attend a few days of the IROS 2026 conference in Pittsburgh. I wanted to write a post to hit some of the highlights, call out some themes in works that I found interesting, and talk about some of the crazy platforms in the exhibit hall.</p>
+
+<p>My poster presented <em><a href="https://arxiv.org/html/2610.01794v1">Continuous Conditioning of VLAs with Augmenting EMG and Visual Task Descriptors</a></em>, a paper that ties up two recent projects at APL concerning VLA tuning. Our central question was whether it is possible to tune a VLA to understand task specifications in a modality other than language. We showed that you absolutely can, and we have experiments communicating tasks via EMG gestures (added to low-level state information) and visual annotations (added to image inputs). I am personally split on whether this is an obvious result (of course you can put more information into state and tune the model to pick up on it), or actually really interesting (the model was pretrained entirely on data in which <em>language</em> was used to explain the objective).</p>
+
+<p>Personally, I find this question interesting because while language is a natural way to communicate with an LLM or VLM on a computer, it is one of several modalities that humans might use to communicate in a physical environment. Humans use a combination of language, body language, and gestures to convey intent, and for complex ideas we might even use something like diagrams or sketches. Some natural questions arise: how can a VLA receive communication, and how would a human prefer to communicate? We are just scratching the surface of the former question in our work.</p>
+
+<h3>Favorite Workshop Works and Mentions</h3>
+
+<p>I wanted to mention a few of my favorite works that were mentioned in the WORLDS workshop and some of the other workshops on day one. I have found that the works that really appeal to me are not just academically novel but are introducing some new perspective about robotics or learning, and challenging the status-quo in some way (or maybe just challenging my own understanding of an aspect of the field).</p>
+
+<p>Coming from a DRL and IL background, I typically study problems in robotics that look like the following, to be extremely causal about definitions:</p>
+
+<ol>
+<li><p>You are ultimately trying to learn a policy that outputs actions in response to states. States in =&gt; actions out.</p></li>
+<li><p>There is some well-known starting state, like a "home position".</p></li>
+<li><p>Control happens in discrete steps at a chosen timescale.</p></li>
+<li><p>State includes proprioceptive input and/or vision (and language in the V<strong>L</strong>A case)</p></li>
+<li><p>If all is well and good, you will be able to deploy your policy into an environment with similar structure.</p></li>
+</ol>
+
+<p>To get us on theme, I would say that the poster I presented challenges item (4), by asking if language can be swapped out for something else when communicating a task to a VLA. Rather than trying to improve performance under standard assumptions, the novelty comes from testing the gray areas around these assumptions. Going forward I am going to try to use this strategy more.</p>
+
+<h4>Questioning #2: Starting State Distribution</h4>
+
+<p>I saw two works that I felt were challenges to point (2): how we define the starting state. A fellow WORLDS poster was Pangaonkar, Rath, and Patil’s <a href="https://arxiv.org/abs/2603.20659">StageCraft</a>, which tries to understand which objects in a scene might be obstructing or distracting a VLA. After observing failed rollouts, the system learns how to remove distractors up-front. My takeaway from this was: if you are starting in a state you don’t like, can you just change the state before you even start? In other words, the initial state is not something you are just handed, but rather something that you should think about actively manipulating yourself. If policy A likes its initial state in a particular fashion, maybe some policy B can prepare it accordingly.</p>
+
+<p>I also saw a talk from Abhishek Gupta in which he presented, among other works, Yin et al's <a href="https://arxiv.org/abs/2603.15789">OmniReset</a>. This is scaled, massively parallel PPO, with a key change that the reset positions are carefully crafted to cover many relevant areas of the problem that would normally be quite hard to find via exploration. Rather than some home position or default position in a pick-and-place scenario, the resets should cover many initial poses, approach poses, near grasps, near places, and perturbations. Essentially: offload the exploration problem to the reset mechanism. Like StageCraft, this is questioning which aspects of the MDP are inside our control, but while StageCraft offers a physical intervention, OmniReset is saying that we could just redefine the MDP to be in our favor.</p>
+
+<p>I wanted to note here an important ramification of the above: you could easily apply the same idea to demonstration data collection for imitation learning. Instead of collecting a similar trajectory N times, the question should be: which N variants and subtrajectories should I show?</p>
+
+<h4>Questioning #3: Chosen Timescale</h4>
+
+<p>I learned about Watson et al’s <a href="https://arxiv.org/abs/2608.11511">Let it Cook</a>, which explores explicitly learning to wait for long periods in tasks that have longer time horizons- think waiting for water to boil, or glue to set, etc. I really liked this because my first intro to RL was the DQN Atari paper, which does actually include a waiting action (a "no-op"). But, trying to learn something like "no-op for 1000 timesteps" is not only difficult to learn, it is also not truly <em>waiting</em> because the policy is not dormant. What is really happening in a series of Atari no-ops is that the system is actively monitoring the environment at N frames per second and choosing not to take action. A true "wait" is not just "no actions", it is also "no sensing", and this needs its own mechanism. So this is a direct challenge to assumption (3) that the policy should operate at a specific rate.</p>
+
+<h4>Questioning #4: Including Touch Modalities</h4>
+
+<p>A huge theme at the conference was touch sensing and how it should be integrated in (4). I saw a fascinating talk by Mark Cutkosky explaining that touch it itself multimodal, and might include things like force, slip, heat conduction, and distinguishing points from fine-level textures. Therefore, state definitions with full touch sensing would be considerable more expanded than a generic {proprio, vision, <em>touch</em>}, although most applications probably do not need all of the touch modalities included. For example, if you just care about hot/cold then maybe a thermal camera could replace conduction sensing.</p>
+
+<p>There were plenty of exhibits showing different touch sensors. My favorites were playing with the new Allegro Hand V6 which included GelSight finger tips, and the whole-body e-Skin from Sharpa (see end of post).</p>
+
+<h4>Questioning #5: Train/Test Environment Alignment</h4>
+
+<p>Hu et al’s <a href="https://arxiv.org/abs/2405.14853">Privileged Sensing Scaffolds Reinforcement Learning</a>: This is focused on learning policies with extra sensors and then deploying them with less sensing, which is a very interesting challenge to point (5) above. Basically, a really core assumption of policy learning is that we are trying to prepare a policy for a real environment, and therefore it behooves us to make the train and test settings as similar as possible (the  sim-to-real gap being one example). But Hu is saying: no, actually, that is slightly wrong! If the training environment has extra information, that is potentially even a good thing. The train/test environments being different is fine, as long as they are different in a way we can use to our advantage.</p>
+
+<p>Gupta also discussed Levy et al's <a href="https://sim-dist.github.io/">SimDist</a> in his talk, which is specifically looking at the sim-real <em>dynamics</em> gap. This doesn’t necessarily challenge the fourth assumption above but is looking to address the fact that simulated dynamics (friction, contacts, etc) are almost never going to be accurate. In this work, a latent world model for planning is learned in heavily randomized simulations, along with a reward model and value model which operate on the latent representation. The world model can be separated into encoders which compress observations into latent vectors, and a dynamics module that predicts the next latents given an action chunk. </p>
+
+<p>After initial training, the dynamics model is tuned on real data to make the dynamics more accurate, while everything else is frozen (encoders, reward prediction, value prediction). Planning through this tuned model with MPPI yields significant gains over the untuned model, since dynamics errors are less likely to compound.</p>
+
+<p>Note for myself: This is a great paper to understand a full policy + world model setup and there are some smart design choices. The dynamics model is a transformer that predicts a chunk of future states in one pass, allowing an entire rollout of the model to be computed from a sequence of actions. This makes MPPI very efficient. A policy (trained from sim only) outputs an action chunk to warm-start MPPI, and then this refines the trajectory under the tuned dynamics.</p>
+
+<h4>Questioning the Whole Thing</h4>
+
+<p>Finally, I saw two works presented by Leslie Kaelbling, <a href="https://arxiv.org/abs/2609.30249">RAPID</a> (Liu et al) and <a href="https://arxiv.org/html/2603.09971v1">TiPToP</a> (Shen et al, and interestingly also Watson and Hu mentioned above). Both of these work showed (to me) that foundation models can now offer enough semantics and structure that more classical planning approaches are viable. While SimDist learns a latent world model from data, these works build a proper simulation / scene representation from observing a real scene. They can then plan through this representation.</p>
+
+<p>This is area of robotics that I need to pay more attention to. In the back of my mind it seemed too difficult to take a novel or unstructured scene and quickly distill it into a representation suitable for planning. And I just sort of parked that notion in my head for the last 5-10 years.</p>
+
+<p>If this is not true, it means that there is perhaps a full spectrum of possible approaches to robotics in the foundation-model era. You could collect demonstrations of everything you want to do, you could model everything you want to do (perhaps on the fly), or something in-between, like neural world models built from data. Either way you might start from the same vision/language priors. It would be nice if those priors eventually start including representations like affordances, weight distribution, rigidity, material, and so forth. That still feels like an exercise in scaled data collection to me. Hmmm.</p>
+
+<h3>Exhibits!</h3>
+
+<p>Some fun exhibit hall stuff! There were mountains of dexterous hands, humanoids (especially torsos +/- wheels), and generally wacky configurations. Here are my favorites:</p>
+
+<h4>Most Impressive Demo (Tie): Agility / Westwood</h4>
+
+<p>I doubt I saw every demo in the hall, from what I did see there were only two that demonstrated live full-body loco/manipulation. Agility Robotics had an awesome demonstration of their Digit robot picking up and transporting tube-shaped packages, and Westwood demonstrated Themis picking up objects on one table and moving them to another.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261004225026337.png" alt="image-20261004225026337" style="zoom:80%;" /></p>
+
+<h4>Second Place: Sharpa E-Skin</h4>
+
+<p>This is going to be insane if it keeps developing for a few years. They showed full-body tactile sensing with an "e-skin". I did not get a good picture but essentially each linkage on the robot below will show live pressure sensing readings on the screen in the background:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261004225321507.png" alt="image-20261004225321507" style="zoom: 33%;" /></p>
+
+<h4>Favorite Booth / Most Fun Demo: Haply</h4>
+
+<p>This is really hard to explain in text and images because its all about haptic feedback. You just gotta <em>feel</em> it.</p>
+
+<h4>Awesome Gripper: DH Robotics</h4>
+
+<p>DH had all sorts of grippers, from pinchers to dexterous hands, but this one in-between was my favorite:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261004230214852.png" alt="image-20261004230214852" style="zoom: 67%;" /></p>
+
+<h4>Strangest Platform: Hopto</h4>
+
+<p>I wish I understood <em>why</em> Hopto is a thing, but I do like it. Quadcopter + pogostick:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="./hopto.gif" alt="[hopto]" /></p>
+
+<h3>End</h3>
+
+<p>This does not even scratch the surface off all the cool robots on display, but among the many flashy hands and humanoids I thought these deserved a mention. Not to mention all the talks and posters, which I could write several more posts about. I saw elephant trunk robots, undersea crab-bots, snake robots, even burrowing robots! I really enjoyed IROS and will definitely be looking to return for future years.</p>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/iros26/iros26.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/iros26/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>IROS 2026</p>
+<p class='postpreview_subtitle'>Poster Presentation and Favorites</p>
+<p class='postpreview_date'>October 05, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/robocell/robocell.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/robocell/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>A Home Robocell</p>
+<p class='postpreview_subtitle'>Planting a YAM in my Basement</p>
+<p class='postpreview_date'>October 02, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/fexo/fexo.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/fexo/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Finger Exoskeleton</p>
+<p class='postpreview_subtitle'>Using Light Sensors to Read Finger Joint Angles</p>
+<p class='postpreview_date'>September 26, 2026</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2026 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>

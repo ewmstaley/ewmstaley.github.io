@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A Home Robocell</title>
+
+  <!-- favicon -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+
+  <!-- social previews-->
+  <meta property="og:title" content="A Home Robocell" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="Planting a YAM in my Basement" />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>A Home Robocell</h1>
+
+<h2>Planting a YAM in my Basement</h2>
+
+<p class='author'>October 02, 2026</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>This is just a short post to document the building of a robot workstation. I like to call this a robot "cell", but I've also heard "workstation", "workspace", etc. Whatever you call it, it is basically a table with a robot clamped to it, and some cameras to capture views of the scene. This gives you what you need to collect the minimum viable version of today’s canonical demonstration data: (1) robot that can hopefully read its own joint angles, (2) some cameras, one of which is attached to the end-effector.</p>
+
+<h3>Shopping List</h3>
+
+<ul>
+<li><p><strong>Your robot of choice</strong>. I bought a YAM because it is lower in price than more traditional arms. I think "affordable" is probably too strong of a word, but in the world of robot hardware it’s all relative.</p></li>
+<li><p><strong>Some cameras</strong>:</p>
+
+<ul>
+<li><p>Third-person views: 2x AR0234 cameras on Amazon with just the bare board and a lens. These are much cheaper that other options while still being an upgrade from a webcam. I got two for separate left/right views, but some setups just use a single overhead view. This is (unfortunately) one of the cheapest items on the shopping list so if you want to capture your robot from 8 different angles, go for it.</p></li>
+<li><p>Wrist Camera: i2RT’s MF150, which is pricey but comes with a bracket to attach to the arm and is still cheaper than the other standard option for the YAM, the Intel D405. Prices are insanely inflated for the latter right now.</p></li>
+</ul></li>
+<li><p><strong>Some camera accessories</strong>: Mounting the bare-board cameras is awkward and I will explain my crude approach below. But you need to mount the cameras and connect to them. I purchased 2 ball-pivot mounts that are meant for phones so I could easily adjust the camera angle after mounting, and some long USB extension cables.</p></li>
+<li><p><strong>Cage</strong> <strong>/ Frame</strong>: As far as I can tell, you need a minimum of 10 bars of 2020 to make a cage. This is basically the edges of a cube with two of the bottom links removed. Fortunately, you can buy 10-packs of 48" aluminum extrusion on Amazon. If you are willing to get more nuanced with it you should probably have different sizes for the uprights and horizontals, but I didn’t worry about it.</p>
+
+<ul>
+<li>Important Note: 48" assumes that you can put the cage on something that is level with the table, not the ground. If you are going to build from the ground-up and essentially encase the table itself, you need longer links.</li>
+</ul></li>
+<li><p><strong>Table:</strong> I have been very pleasantly surprised to learn that a junky old IKEA table I have is perfectly fine. Gut instinct says you need a really sturdy table for a robot arm, but I think the YAM is not strong enough that it is a true requirement. If you already have a beefy table though, use that.</p></li>
+</ul>
+
+<h3>Cage + Table Diagram</h3>
+
+<p>Here is what I mean by "a cube with two bottom links removed". This creates a frame that you can place over / around a table top:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261004131314014.png" alt="image-20261004131314014" style="zoom: 67%;" /></p>
+
+<h3>Camera Mounting</h3>
+
+<p>My camera mounting leaves something to be desired. Ideally a custom enclosure and mount are probably needed for the bare-board camera, but I was in a pinch and found that I could press the boards into light styrofoam to give it a "housing". This is rigid enough to be grasped by a pinching phone mount. </p>
+
+<p>I was fairly impressed with the mount hardware, and highly recommend a cheap ball-pivot mount to easily reposition things. I mounted the cameras in the corners of the cage, kind of like security cameras:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261004131441132.png" alt="image-20261004131441132" style="zoom:67%;" /></p>
+
+<p>For the onboard camera, I purchased the MF150 camera from I2RT since it comes with a mounting plate. It is okay. My module has a smudge that seems to be inside the lens itself, and the grippers do not occupy much of the frame. I think I may look at tilting this further forward in the future.</p>
+
+<p>Also, the cable for this camera sticks straight out of the top of the gripper like an antenna. I may have mounted it wrong. I looks really weird and I don’t see the cables in any of the product photos (which reinforces my notion that it looks weird, therefore it is not in product photos, and therefore I did it correctly). See below, the gripper preparing to select some Halloween candy.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261004131606031.png" alt="image-20261004131606031" style="zoom:67%;" /></p>
+
+<h3>Full Setup</h3>
+
+<p>This is what the complete cell looks like, including views from each camera:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261004131756248.png" alt="image-20261004131756248" /></p>
+
+<h3>Proof of Life</h3>
+
+<p>The YAM has an awesome out-of-the-box capability to move the arm with your hands in "zero-gravity" mode, and then replay a recorded motion. This is a great way to test your setup and even collect data. So for a fun proof-of-life, here is a three-view video of a replayed motion of picking up some Halloween candy. I believe the left/right view got swapped, but there are still three of them.</p>
+
+<p>Interesting side note: My basement has flickering LEDs! I did not know this until I tried these cameras at a high frame rate. Yuck! I will need to get some better lighting.</p>
+
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/ycaZ8lXiZlU" title="YAM trajectory playback" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/iros26/iros26.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/iros26/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>IROS 2026</p>
+<p class='postpreview_subtitle'>Poster Presentation and Favorites</p>
+<p class='postpreview_date'>October 05, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/robocell/robocell.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/robocell/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>A Home Robocell</p>
+<p class='postpreview_subtitle'>Planting a YAM in my Basement</p>
+<p class='postpreview_date'>October 02, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/fexo/fexo.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/fexo/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Finger Exoskeleton</p>
+<p class='postpreview_subtitle'>Using Light Sensors to Read Finger Joint Angles</p>
+<p class='postpreview_date'>September 26, 2026</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2026 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
