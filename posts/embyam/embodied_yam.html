@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Embodied YAM Gripper</title>
+
+  <!-- favicon -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+
+  <!-- social previews-->
+  <meta property="og:title" content="Embodied YAM Gripper" />
+  <meta property="og:type" content="website" />
+  <meta property="og:URL" content="https://www.tedstaley.com" />
+  <meta property="og:image" content="cover.png" />
+  <meta property="og:description" content="for Hands-On Data Collection" />
+
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link href="../../style.css" rel="stylesheet" />
+  <script type="text/javascript" src="../../script.js"></script>
+
+  <!-- code highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</head>
+
+<header>
+  <div style="width:100%; max-width:1100px; height:50px; margin:auto; display: flex; justify-content: right;">
+    <!-- left logo -->
+    <div style="display: flex; justify-content: left; width:35%; height:100%;">
+      <a href="../../index.html">
+      <div class="logo">
+        Ted Staley
+      </div>
+      </a>
+    </div>
+
+    <!-- right buttons, if wide enough -->
+    <div class="right-buttons-desktop">
+      <div style="display: flex; justify-content: right;">
+        <a href="../../technical.html"><div class="navbtn">Posts</div></a>
+        <a href="../../misc.html"><div class="navbtn">Other</div></a>
+        <a href="../../about.html"><div class="navbtn">About</div></a>
+      </div>
+    </div>
+
+    <!-- right buttons, if mobile or too thin -->
+    <div class="right-burger-holder">
+      <!-- this is the menu button -->
+      <div style="display: flex; justify-content: right;">
+        <div class="burger" id="burger" onclick="toggle_burger()"><i class="fa fa-bars"></i></div>
+      </div>
+    </div>
+
+
+  </div>
+</header>
+
+<body>
+  <!-- vertical menu if hamburger is clicked -->
+  <div class="mobile-menu-holder">
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="../../technical.html"><div class="mobilenavbtn">Posts</div></a>
+    <a href="../../misc.html"><div class="mobilenavbtn">Other</div></a>
+    <a href="../../about.html"><div class="mobilenavbtn">About</div></a>
+  </div>
+  </div>
+
+  <div class="main">
+  <div class="main-next"><h1>Embodied YAM Gripper</h1>
+
+<h2>For Hands-On Data Collection</h2>
+
+<p class='author'>October 25, 2026</p>
+
+<div class='coverwrap' style='background-image:url("cover.png");'></div>
+
+<p>While setting up my home YAM workstation I became interested in how I might collect demonstration data for the platform without the awkwardness of a joystick or the expense of a second arm for a leader/follower setup. I really wanted to find a way to use my own hands to collect data, and I find this is an area I return to often: what is the right interface for a human to operate a robot that is both useful and intuitive?</p>
+
+<p>A really nice paradigm that has become popular lately is a UMI-style gripper that you carry around on/in your hand and operate in free space. If you can record position, orientation, gripper actuation, and onboard cameras, you can ideally train a policy on this data and reproduce the behaviors on a robotic arm with an end-effector centric control scheme. Variants like Sunday's three-fingered glove and Generalist's yellow pinchers allow a data collector to use their own hands much more immediately than a teleop scheme that is removed from the actual platform.</p>
+
+<p>However, a teleoperated arm in a controlled space also has some helpful attributes, namely that a collected demonstration is exactly how the robot itself would move to achieve that same task autonomously. There is no mismatch in achievable poses or forces because the robot itself is involved in the collection loop. But, personally I find the gap between the operator and the robot in most teleoperation to be fairly unintuitive. Often the platform you are controlling is several feet away, maybe lagging behind your motions a bit, hurts your neck to look at, and you never really feel in control.</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261026164551212.png" alt="image-20261026164551212" style="zoom:50%;" /></p>
+
+<p>A very appealing midpoint between these two collection schemes is an exoskeleton: a human can embody the robot itself, and therefore by performing motions through the robot, the robot itself also "experiences" the trajectory. While I do not have an exoskeleton to present here, I do think I have a nice middle ground in the form of a hollow YAM gripper that I can operate with my own hand. I am calling this an "embodied gripper", but open to better naming ideas.</p>
+
+<p>This post has two halves: (1) explaining the gripper and how to use it, and (2) a lot of time devoted to a major side-effect: your own arm is in all of the videos during data collection! Some care needs to be taken to amputate said arm from the final dataset.</p>
+
+<h3>Gripper V1</h3>
+
+<p>After seeing the YAM zero gravity mode I had the idea for a gripper that I could "drive" with my own hand, but that remained attached to the YAM itself. This took a bit of CAD practice, but I was able to put together a chunky prototype. The fingers of a standard gripper are widened considerably, reduced to an open shell structure, and are dropped down to sit underneath the end effector. This allows a user to place their thumb and pointer finger inside the gripper itself:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261026164934976.png" alt="image-20261026164934976" style="zoom:67%;" /></p>
+
+<p>This takes a bit of practice, but honestly is pretty intuitive once you get used to your hand becoming a plastic tong system. Sitting on a stool next to the table, I can quickly and easily perform pinching grasps and move objects around. Here are some views from an overhead camera:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="stitched.gif" alt="stitched"  /></p>
+
+<p>Note that one side-effect of this is that the gripper is now out of view of the standard YAM wrist-camera mount, so there is no wrist camera included in these pictures. I am waiting for some modified brackets to arrive that should provide a better view. There is also a gripper version 2 that I am waiting on, which is not fully open at the bottom. This should make it much easier to drag the gripper down towards the table surface.</p>
+
+<h3>Torque Balancing</h3>
+
+<p>An unexpected hiccup with getting this to work right away: it is pretty difficult to open the gripper once it is closed, because you need to back-drive the gripper motor while opening your hand. This is not a motion where humans can exert a lot of strength, and I found that I got tired really quickly. </p>
+
+<p>However, the closing motion is comparatively easy, which lead to a nice fix: during demo collection, the gripper motor can be biased to exert torque the opens the gripper. Not enough to actually move the gripper, but almost enough to open it. This means that as soon as you get the gripper opening, it glides with your hand. You have to work a little harder to close the gripper, but again this is a considerably easier feat than opening, well worth the extra effort.</p>
+
+<p>Here is an animation showing the bias: once I push the gripper open, the extra torque does a lot of work to keep things moving:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="output_torque.gif" alt="output_torque" style="zoom: 80%;" /></p>
+
+<h3>Image In-Painting with SAM and LaMa</h3>
+
+<p>We now need to address the major impact of collecting data with this gripper: all overhead camera views show my own arm. </p>
+
+<p>Note: Given a bit of data of the robot with / without my arm in the frame, there are probably really strong learned solutions that could fix this, and I will probably try those once I have enough data. For example, my <a href="https://www.tedstaley.com/posts/style1/cyclegan_mujoco.html">style transfer experiments</a> from last year. But I don't have that data yet, and it is not realistic to have that for a single new task. So here I tried to in-paint my hand with some off-the-shelf models.</p>
+
+<p>I initially tried to fix this with image in-painting. The idea would be that I use a segmentation model (<a href="https://github.com/facebookresearch/sam3">SAM3</a> in this case) to segment my arm, and an image in-painting model to replace it. I tried <a href="https://github.com/advimman/lama">LaMa</a> with some curious results: the model seemed to infer that an arm was masked out, and supplied a new one:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261027202740195.png" alt="image-20261027202740195" /></p>
+
+<p>It turns out that there are just so many context clues that an arm belongs in that space: the shadow on the table, a pinkish reflection on the arm, and a few flesh-colored pixels that did not make it into the mask. To force the model to supply background, I needed to dilate the mask and block out the bottom edge that had some stray skin:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261027203003945.png" alt="image-20261027203003945" /></p>
+
+<p>This is... ok. A clear problem is going to be that this is just a really weird image for many inpainting models that are used to nice scenes of familiar objects. Given that this is kind of messy and would create lots of frame-to-frame artifacts, I started looking into video inpainting instead.</p>
+
+<h3>Video In-Painting with SAM and EffectErase</h3>
+
+<p>I found a newer work called <a href="https://henghuiding.com/EffectErase/">EffectErase</a> which has really impressive results. Not only does this claim to remove a masked object, but it also removes the effects of that object (shadows, reflects, etc), hence the name.</p>
+
+<p>However, this also means that the model can (and should) make edits outside the masked area, so it is a bit dangerous. For the unfamiliar setting of a top-down view of a robot, I occasionally saw strange artifacts over the robot arm or wonky saturation / exposure. I eventually moved to a hybrid approach in which EffectErase edited the video, and then I blended the original frames back in with a dilated and feathered mask. However, this also preserves a lot of the shadow from my arm.</p>
+
+<p>The steps are as follows: </p>
+
+<ul>
+<li><p>Run SAM3 in video mode to get masks for each frame, using prompt "human arm".</p></li>
+<li><p>Use original + masks to run EffectErase, which regenerates the video</p></li>
+<li><p>Composite the original frames and the EffectErase frames together, using a dilated and feathered mask</p></li>
+</ul>
+
+<p>This gives us:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="comparison2x2.gif" alt="comparison2x2" /></p>
+
+<p>Both of the bottom videos look pretty good to me. Part of the problem here is that the original lighting is bad. So before tinkering with this anymore, I went to Target and bought some lamps.</p>
+
+<h3>Let there be Light</h3>
+
+<p>Lamps!</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261027211132594.png" alt="image-20261027211132594" style="zoom:80%;" /></p>
+
+<p>This helps a lot. We are getting very close to a clean result. On the left is a recording from the well-lit environment and the resulting video after arm removal:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="comparison_light.gif" alt="comparison_light"  /></p>
+
+<h3>Remaining Artifacts</h3>
+
+<p>There are a few little things left:</p>
+
+<ul>
+<li><p>There is consistently an area near the gripper that has a bit of my hand left.</p></li>
+<li><p>The EffectErase video sometimes has a different color than the original (almost like an autoexposure effect), creating a ghostly yellow or blue area where the videos are composited.</p></li>
+<li><p>Some remaining shadow artifacts. This seems to be true even in the EffectErase videos with the updated lighting.</p></li>
+</ul>
+
+<p>I am unclear on how heavily I should pursue these, since the fixes quickly become setup-specific and might not be generally useful. Even adding lighting is not always going to be possible. Additionally, a lot of this might be handled with domain randomization during downstream learning: adding color variants, regions of changed exposure/saturation, noise, and artifacts.</p>
+
+<p>The remaining shadow from my arm is really the only one above that worries me. This is a distinct visual feature that moves with the arm, and may require a custom dataset of scenes with/without the shadow to really handle well.</p>
+
+<h3>What's Next</h3>
+
+<p>Certainly what's next is to collect a bunch of data and train a flow policy. Highly likely my next post will be about the results of this on a simple task, and whether or not the arm shadow has wreaked havoc.</p>
+
+<p>Beyond this there are some interesting directions that are enabled by having your hand and the gripper co-located at the end of the arm, mainly concerning how a human can supply immediate correction or guidance:</p>
+
+<ul>
+<li><p>Data collection under perturbation: Instead of collecting nice trajectories, the arm itself could periodically perturb the demonstrator (gently!), and you could record how the human responds. This is sort of a preemptive DAgger approach in which you are trying to harvest corrections from the human's "policy". Paired with a few standard demonstrations I think this could be pretty powerful, although fairly annoying as the demonstrator. </p></li>
+<li><p>Guidance / refinement of trained policies: Similarly for more standard corrections, you could train an initial policy that expects a human arm to be present, and allow joint control during policy deployment. The demonstrator could be mostly passive, but supply corrective forces at critical moments like grasping or placement. Balance would be needed between the two parties involved so that they can guide each other instead of fighting, and so that when push comes to shove the human's arm wins to avoid injury. Once this joint policy is refined really well, you could use the in-painting above to transfer it to a hands-free mode.</p></li>
+</ul>
+<div style='width:100%;height:50px;'></div>
+<h3>Recent Posts:</h3>
+<a href='../../posts/embyam/embodied_yam.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/embyam/preview.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>Embodied YAM Gripper</p>
+<p class='postpreview_subtitle'>For Hands-On Data Collection</p>
+<p class='postpreview_date'>October 25, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/iros26/iros26.html'>
+<div class="postpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/iros26/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>IROS 2026</p>
+<p class='postpreview_subtitle'>Poster Presentation and Favorites</p>
+<p class='postpreview_date'>October 05, 2026</p>
+</div>
+</div>
+</a>
+<a href='../../posts/robocell/robocell.html'>
+<div class="postpreview lastpostpreview">
+<div class='postpreview_image' style='background-image:url("../../posts/robocell/cover.png");'></div>
+<div class="postpreview_text">
+<p class='postpreview_title'>A Home Robocell</p>
+<p class='postpreview_subtitle'>Planting a YAM in my Basement</p>
+<p class='postpreview_date'>October 02, 2026</p>
+</div>
+</div>
+</a>
+
+
+<a href=../../technical.html><p class="oldpostlink">More Posts</p></a></div>
+</div>
+
+<br/>
+<br/>
+<div class="footer">
+	<div style="width:100%;height:20px;"></div>
+	<div class="footer_container" style="width:100%; max-width:900px; margin:auto; display: flex; justify-content: left;">
+
+		<!-- left info -->
+		<div style="width:40%; max-width:40%;height:100%;text-align:left;">
+			<p class="footerlink"><a class="footerlinka" href="https://github.com/ewmstaley">Github</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://scholar.google.com/citations?hl=en&user=8sqgudsAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></p>
+			<p class="footerlink"><a class="footerlinka" href="https://www.linkedin.com/in/ted-staley-7284874b">LinkedIn</a></p>
+			<div style="width:100%;height:20px;"></div>
+			<p class="footerlink" style="color:#555;">Copyright &copy; 2026 Ted Staley</p>
+		</div>
+
+		<!-- filler -->
+		<div style="width:5%;height:100%;"></div>
+
+		<!-- right info -->
+		<div style="width:55%; max-width:55%;height:100%;text-align:right;">
+			<p class="footerlink" style="text-align:right;">edward.staley@jhuapl.edu</p>
+			<p class="footerlink" style="text-align:right;">ewmstaley@gmail.com</p>
+		</div>
+
+	</div>
+
+</div>
+
+</body>
+</html>
