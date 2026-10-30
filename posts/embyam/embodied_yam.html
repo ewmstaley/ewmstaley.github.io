@@ -83,81 +83,85 @@
 
 <div class='coverwrap' style='background-image:url("cover.png");'></div>
 
-<p>While setting up my home YAM workstation I became interested in how I might collect demonstration data for the platform without the awkwardness of a joystick or the expense of a second arm for a <a href="https://i2rt.com/products/yam-leader">leader/follower</a> setup. I really wanted to find a way to use my own hands to collect data, and I find this is an area I return to often: what is the right interface for a human to operate a robot that is both useful and intuitive?</p>
+<p>While setting up my <a href="https://www.tedstaley.com/posts/robocell/robocell.html">home YAM workstation</a> I became interested in how I might collect demonstration data for the platform without the awkwardness of a joystick or the expense of a second arm for a <a href="https://i2rt.com/products/yam-leader">leader/follower</a> setup. I really wanted to find a way to use my own hands to collect data. I find I return to this question often: what is the right interface for a human to operate a robot that is both useful and intuitive?</p>
 
-<p>A really nice paradigm that has become popular lately is a <a href="https://arxiv.org/abs/2402.10329">UMI</a>-style gripper that you carry around on/in your hand and operate in free space. If you can record position, orientation, gripper actuation, and onboard cameras, you can ideally train a policy on this data and reproduce the behaviors on a robotic arm with an end-effector centric control scheme. Variants like <a href="https://www.sunday.ai/technology">Sunday's three-fingered glove</a> and <a href="https://generalistai.com/blog/gen-1.5">Generalist's yellow pinchers</a> allow a data collector to use their own hands much more immediately than a teleop scheme that is removed from the actual platform.</p>
+<p>A really nice paradigm that has become popular lately is a <a href="https://arxiv.org/abs/2402.10329">UMI</a>-style gripper that you carry around on/in your hand and operate in free space. If you can record position, orientation, gripper actuation, and onboard cameras, you can ideally train a policy on this data and reproduce the behaviors on a robotic arm. Variants like <a href="https://www.sunday.ai/technology">Sunday's three-fingered glove</a> and <a href="https://generalistai.com/blog/gen-1.5">Generalist's yellow pinchers</a> allow a data collector to use their own hands much more immediately than a teleoperation scheme that is removed from the actual platform.</p>
 
-<p>However, a teleoperated arm in a controlled space also has some helpful attributes, namely that a collected demonstration is exactly how the robot itself would move to achieve that same task autonomously. There is no mismatch in achievable poses or forces because the robot itself is involved in the collection loop. But, personally I find the gap between the operator and the robot in most teleoperation to be fairly unintuitive. Often the platform you are controlling is several feet away, maybe lagging behind your motions a bit, hurts your neck to look at, and you never really feel in control.</p>
+<p>However, a teleoperated arm in a controlled space also has some helpful attributes, namely that a collected demonstration is exactly how the robot itself might move to achieve the recorded motion. There is no mismatch in achievable poses because the robot itself is involved in the collection loop. However, I often find the gap between the teleoperator and the robot to be fairly unintuitive. Often the platform you are controlling is several feet away, maybe lagging behind your motions a bit, hurts your neck to look at, and you never really feel "in control". Is there something that might sit between these two paradigms?</p>
 
 <p class='imgwrap'><img class='inlineimg'  src="image-20261026164551212.png" alt="image-20261026164551212" style="zoom:50%;" /></p>
 
-<p>A very appealing midpoint between these two collection schemes is an exoskeleton: a human can embody the robot itself, and therefore by performing motions through the robot, the robot itself also "experiences" the trajectory. While I do not have an exoskeleton to present here, I do think I have a nice middle ground in the form of a hollow YAM gripper that I can operate with my own hand. I am calling this an "embodied gripper", but am open to better naming ideas.</p>
+<p>A very appealing midpoint is an exoskeleton: a human can embody the robot itself, and therefore by performing motions <em>through</em> the robot, the robot itself also "experiences" the trajectory. While I do not have an exoskeleton to present here, I do think I have a nice middle-ground in the form of a hollow YAM gripper that I can operate with my own hand. I am calling this an "embodied gripper".</p>
 
-<p>This post has two halves: (1) explaining the gripper and how to use it, and (2) a lot of time devoted to a major side-effect: your own arm is in all of the videos during data collection! Some care needs to be taken to amputate said arm from the final dataset.</p>
+<p>This post has two halves: (1) explaining the gripper and how to use it, and (2) handling a major side-effect: your own arm is in all of the videos during data collection! Some care needs to be taken to amputate said arm from the final dataset.</p>
 
 <h3>Gripper V1</h3>
 
-<p>After seeing the YAM zero gravity mode I had the idea for a gripper that I could "drive" with my own hand, but that remained attached to the YAM itself. This took a bit of CAD practice, but I was able to put together a chunky prototype. The fingers of a standard gripper are widened considerably, reduced to an open shell structure, and are dropped down to sit underneath the end effector. This allows a user to place their thumb and pointer finger inside the gripper itself:</p>
+<p>Here is my first prototype of a gripper that I can "drive" with my own hand, but that remains attached to the YAM itself. The fingers of a standard gripper are widened considerably, reduced to an open shell structure, and are dropped down to sit underneath the typical end effector position. This allows a user to place their thumb and pointer finger inside the gripper itself, with the human arm sitting underneath the robot arm:</p>
 
 <p class='imgwrap'><img class='inlineimg'  src="image-20261026164934976.png" alt="image-20261026164934976" style="zoom:67%;" /></p>
 
-<p>This takes a bit of practice, but honestly is pretty intuitive once you get used to your hand becoming a plastic tong system. Sitting on a stool next to the table, I can quickly and easily perform pinching grasps and move objects around. Here are some views from an overhead camera:</p>
+<p>Operating the YAM in this way takes a bit of practice, but eventually becomes fairly intuitive. Sitting on a stool next to the table, I can quickly and easily perform pinching grasps and move objects around. Here are some views from an overhead camera:</p>
 
 <p class='imgwrap'><img class='inlineimg'  src="stitched.gif" alt="stitched"  /></p>
 
-<p>Note that one side-effect of this is that the gripper is now out of view of the standard YAM wrist-camera mount, so there is no wrist camera included in these pictures. I am waiting for some modified brackets to arrive that should provide a better view. There is also a gripper version 2 that I am waiting on, which is not fully open at the bottom. This should make it much easier to drag the gripper down towards the table surface.</p>
+<p>Note that the wrist camera is not attached here. Because this modified gripper is moved vertically downward relative to the standard YAM grippers, the fingertips are not visible in the wrist view. I need to correct this with a modified camera bracket before collecting true demonstration data with this gripper.</p>
 
 <h3>Torque Balancing</h3>
 
-<p>An unexpected hiccup with getting this to work right away: it is pretty difficult to open the gripper once it is closed, because you need to back-drive the gripper motor while opening your hand. This is not a motion where humans can exert a lot of strength, and I found that I got tired really quickly. </p>
+<p>An unexpected hiccup with getting this to work right away: it is pretty difficult to open the gripper once it is closed. To open the gripper, you need to back-drive the gripper motor while opening your hand. This is not a motion where humans can exert a lot of strength, and I found that my hand became tired quickly. </p>
 
-<p>However, the closing motion is comparatively easy, which lead to a nice fix: during demo collection, the gripper motor can be biased to exert torque the opens the gripper. Not enough to actually move the gripper, but almost enough to open it. This means that as soon as you get the gripper opening, it glides with your hand. You have to work a little harder to close the gripper, but again this is a considerably easier feat than opening, well worth the extra effort.</p>
+<p>However, the closing motion is comparatively easy, which led to a nice fix: during demo collection, the gripper motor can be biased to exert torque that <em>nearly</em> opens the gripper. This means that as soon as you exert enough force to begin gripper opening, it glides along with your hand. You have to work a little harder to close the gripper, but again this is a considerably easier feat than opening, and well worth the extra effort.</p>
 
 <p>Here is an animation showing the bias: once I push the gripper open, the extra torque does a lot of work to keep things moving:</p>
 
 <p class='imgwrap'><img class='inlineimg'  src="output_torque.gif" alt="output_torque" style="zoom: 80%;" /></p>
 
+<hr />
+
 <h3>Image In-Painting with SAM and LaMa</h3>
 
 <p>We now need to address the major impact of collecting data with this gripper: all overhead camera views show my own arm. </p>
 
-<p>Note: Given a bit of data of the robot with / without my arm in the frame, there are probably really strong learned solutions that could fix this, and I will probably try those once I have enough data. For example, my <a href="https://www.tedstaley.com/posts/style1/cyclegan_mujoco.html">style transfer experiments</a> from last year. But I don't have that data yet, and it is not realistic to have that for a single new task. So here I tried to in-paint my hand with some off-the-shelf models.</p>
+<p>Given a dataset of frames with and without my arm, one solution to this is to train a model that converts between the two, i.e. a custom arm-removing model. For example, my <a href="https://www.tedstaley.com/posts/style1/cyclegan_mujoco.html">style transfer experiments</a> from last year might be a good starting point. However, I do not have such a dataset yet, so I tried to in-paint my hand with some off-the-shelf models.</p>
 
-<p>I initially tried to fix this with image in-painting. The idea would be that I use a segmentation model (<a href="https://github.com/facebookresearch/sam3">SAM3</a> in this case) to segment my arm, and an image in-painting model to replace it. I tried <a href="https://github.com/advimman/lama">LaMa</a> with some curious results: the model seemed to infer that an arm was masked out, and supplied a new one:</p>
+<p>I initially explored image in-painting for single frames. The concept is to use a segmentation model (<a href="https://github.com/facebookresearch/sam3">SAM3</a> in this case) to segment my arm, and an image in-painting model to replace it. I tried an inpainting model called <a href="https://github.com/advimman/lama">LaMa</a> with some curious results: the model seemed to infer that an arm was masked out, and filled in the mask with a new synthetic arm:</p>
 
 <p class='imgwrap'><img class='inlineimg'  src="image-20261027202740195.png" alt="image-20261027202740195" /></p>
 
-<p>It turns out that there are just so many context clues that an arm belongs in that space: the shadow on the table, a pinkish reflection on the arm, and a few flesh-colored pixels that did not make it into the mask. To force the model to supply background, I needed to dilate the mask and block out the bottom edge that had some stray skin:</p>
+<p>It turns out that there are many context clues that an arm belongs in the masked space: the shadow on the table, a pinkish reflection on the robot, and a few flesh-colored pixels that did not make it into the mask. To force the model to supply background, I needed to dilate the mask and block out the bottom edge that had some stray skin:</p>
 
 <p class='imgwrap'><img class='inlineimg'  src="image-20261027203003945.png" alt="image-20261027203003945" /></p>
 
-<p>This is... ok. A clear problem is going to be that this is just a really weird image for many inpainting models that are used to nice scenes of familiar objects. Given that this is kind of messy and would create lots of frame-to-frame artifacts, I started looking into video inpainting instead.</p>
+<p>This is... ok. I can already tell that an overhead view of a robot arm is probably unfamiliar territory for inpainting models. Given that this result is kind of messy and would create lots of frame-to-frame artifacts, I started looking into video inpainting instead. These might at least has consistent errors between frames.</p>
 
 <h3>Video In-Painting with SAM and EffectErase</h3>
 
-<p>I found a newer work called <a href="https://henghuiding.com/EffectErase/">EffectErase</a> which has really impressive results. Not only does this claim to remove a masked object, but it also removes the effects of that object (shadows, reflects, etc), hence the name.</p>
+<p>I found a newer work called <a href="https://henghuiding.com/EffectErase/">EffectErase</a> which has really impressive results. EffectErase is trained on paired data from simulations or curated real scenes that have objects added/removed, such that all repercussions of an object's existence are captured. Therefore EffectErase not only can remove a masked object, but it also removes the <em>effects</em> of that object (shadows, reflections, etc), hence the name. </p>
 
-<p>However, this also means that the model can (and should) make edits outside the masked area, so it is a bit dangerous. For the unfamiliar setting of a top-down view of a robot, I occasionally saw strange artifacts over the robot arm or wonky saturation / exposure. I eventually moved to a hybrid approach in which EffectErase edited the video, and then I blended the original frames back in with a dilated and feathered mask. However, this also preserves a lot of the shadow from my arm.</p>
+<p>However, this also means that the model can (and should) make edits <em>outside</em> the masked area, so it is a bit dangerous. If EffectErase decides that there is some correlated portion of the video outside a mask, it will edit that area too. In fact, it is essentially re-generating the entire video via diffusion. </p>
+
+<p>For the unfamiliar setting of a top-down view of a robot, this seems to create some strange artifacts or wonky saturation / exposure. I eventually moved to a hybrid approach in which EffectErase edited the video, and then I blended the original frames back in with a dilated and feathered mask to preserve out-of-mask pixels from the source video.</p>
 
 <p>The steps are as follows: </p>
 
 <ul>
 <li><p>Run SAM3 in video mode to get masks for each frame, using prompt "human arm".</p></li>
 <li><p>Use original + masks to run EffectErase, which regenerates the video</p></li>
-<li><p>Composite the original frames and the EffectErase frames together, using a dilated and feathered mask</p></li>
+<li><p>Composite the original frames and the EffectErase frames together, using a dilated and feathered mask of the arm</p></li>
 </ul>
 
-<p>This gives us:</p>
+<p>This gives:</p>
 
 <p class='imgwrap'><img class='inlineimg'  src="comparison2x2.gif" alt="comparison2x2" /></p>
 
-<p>Both of the bottom videos look pretty good to me. Part of the problem here is that the original lighting is bad. So before tinkering with this anymore, I went to Target and bought some lamps.</p>
+<p>Both of the bottom videos look pretty good to me. One problem that jumps out is simply that the original lighting is bad. So before tinkering with this anymore, I went to Target and bought some lamps.</p>
 
 <h3>Let There be Lamps!</h3>
 
 <p class='imgwrap'><img class='inlineimg'  src="image-20261027211132594.png" alt="image-20261027211132594" style="zoom:80%;" /></p>
 
-<p>This helps a lot. We are getting very close to a clean result. On the left is a recording from the well-lit environment and the resulting video after arm removal:</p>
+<p>This helps a lot. Shadows are generally reduced details of the black plastic on the robot arm more visible. Below is the same routine as above, using a recording from the well-lit setup:</p>
 
 <p class='imgwrap'><img class='inlineimg'  src="comparison_light.gif" alt="comparison_light"  /></p>
 
@@ -167,24 +171,38 @@
 
 <ul>
 <li><p>There is consistently an area near the gripper that has a bit of my hand left.</p></li>
-<li><p>The EffectErase video sometimes has a different color than the original (almost like an autoexposure effect), creating a ghostly yellow or blue area where the videos are composited.</p></li>
-<li><p>Some remaining shadow artifacts. This seems to be true even in the EffectErase videos with the updated lighting.</p></li>
+<li><p>The EffectErase video sometimes fills in the masked area with a slightly different color than the background, creating faint ghosting effects.</p></li>
+<li><p>The arm shadow is still there. This seems to be true even in the EffectErase videos with the updated lighting.</p></li>
 </ul>
 
-<p>I am unclear on how heavily I should pursue these, since the fixes quickly become setup-specific and might not be generally useful. Even adding lighting is not always going to be possible. Additionally, a lot of this might be handled with domain randomization during downstream learning: adding color variants, regions of changed exposure/saturation, noise, and artifacts.</p>
+<p>I am unclear on how heavily I should pursue these, since the fixes quickly become setup-specific and might not be generally useful. Even adding lighting is not always going to be possible. Additionally, a lot of these might be handled with domain randomization during downstream learning: adding color variants, regions of changed exposure/saturation, noise, and synthetic artifacts.</p>
 
-<p>The remaining shadow from my arm is really the only one above that worries me. This is a distinct visual feature that moves with the arm, and may require a custom dataset of scenes with/without the shadow to really handle well.</p>
+<p>The remaining shadow from my arm is really the only item above that worries me. This is a distinct visual feature that moves with the arm, and may require a custom dataset of scenes with/without the shadow to handle.</p>
 
 <h3>What's Next</h3>
 
-<p>Certainly what's next is to collect a bunch of data and train a flow policy. Highly likely my next post will be about the results of this on a simple task, and whether or not the arm shadow has wreaked havoc.</p>
+<p>Certainly what's next is to collect a bunch of data and train a flow policy. Highly likely my next post will be about the results of imitation learning on a simple task, and whether or not the arm shadow has wreaked havoc.</p>
 
-<p>Beyond this there are some interesting directions that are enabled by having your hand and the gripper co-located at the end of the arm, mainly concerning how a human can supply immediate correction or guidance:</p>
+<p>Beyond this there are some interesting directions that are enabled by having your hand and the gripper co-located at the end of the robot, mainly concerning how a human can supply immediate correction or guidance:</p>
 
 <ul>
-<li><p>Data collection under perturbation: Instead of collecting nice trajectories, the arm itself could periodically perturb the demonstrator (gently!), and you could record how the human responds. This is sort of a preemptive DAgger approach in which you are trying to harvest corrections from the human's "policy". Paired with a few standard demonstrations I think this could be pretty powerful, although fairly annoying as the demonstrator. </p></li>
-<li><p>Guidance / refinement of trained policies: Similarly for more standard corrections, you could train an initial policy that expects a human arm to be present, and allow joint control during policy deployment. The demonstrator could be mostly passive, but supply corrective forces at critical moments like grasping or placement. Balance would be needed between the two parties involved so that they can guide each other instead of fighting, and so that when push comes to shove the human's arm wins to avoid injury. Once this joint policy is refined really well, you could use the in-painting above to transfer it to a hands-free mode.</p></li>
+<li><p><strong>Data collection under perturbation:</strong> Instead of collecting nice trajectories, the arm itself could periodically perturb the demonstrator (gently!), and you could record how the human responds. This is sort of a preemptive DAgger approach in which you are trying to harvest corrections from the human's "policy". Paired with a few standard demonstrations I think this could be pretty powerful, although fairly annoying as the demonstrator. </p></li>
+<li><p><strong>Guidance / refinement of trained policies:</strong> Similarly for more standard corrections, you could train an initial policy that expects a human arm to be present, and allow joint control during policy deployment. The demonstrator could be mostly passive, but supply corrective motions at critical moments like grasping or placement. Balance would be needed between the two parties involved so that they can guide each other instead of fighting, and so that when push comes to shove the human's arm wins to avoid injury. Once this joint policy is refined really well, you could use the in-painting above to transfer it to a hands-free mode.</p></li>
 </ul>
+
+<hr />
+
+<h3>Update 10/30/2026</h3>
+
+<p>Had a sudden idea: I can take a still snapshot of the scene before data collection, and then use SAM3 to segment out the "shadowed" tabletop and replace it with data from the still. This could work for most data collection environments.</p>
+
+<p>This procedure maybe swings too far the other direction (most shadows are removed) but I still think it is an improvement. In fact, training a policy on a combination of the prior result and this one might be best, to provide demonstration data with and without shadow artifacts. The whole workflow now looks something like this:</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="image-20261030145803968.png" alt="image-20261030145803968" style="zoom:80%;" /></p>
+
+<p>This gives the following improvement (far right), including a bit of blending logic so that there is not a cookie-cutter appearance around the robot arm and objects. Not too bad!</p>
+
+<p class='imgwrap'><img class='inlineimg'  src="org_v1_v2.gif" alt="org_v1_v2" /></p>
 <div style='width:100%;height:50px;'></div>
 <h3>Recent Posts:</h3>
 <a href='../../posts/embyam/embodied_yam.html'>
